@@ -28,6 +28,6 @@
 #ifndef TTS_SERVER_H
 #define TTS_SERVER_H
 
-int start_server(const char *, int);
+int tts_start_server(const char *, int);
 
 #endif
