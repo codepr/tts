@@ -25,43 +25,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TTS_VECTOR_H
-#define TTS_VECTOR_H
+#include "tts.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-
-#define TTS_VECTOR(type) struct { \
-    size_t size;                  \
-    size_t capacity;              \
-    type *data;                   \
+int main(void) {
+    struct tts_time_series ts;
+    TTS_VECTOR_INIT(ts.timestamps, 4);
+    TTS_VECTOR_INIT(ts.columns, 4);
+    TTS_VECTOR_DESTROY(ts.columns);
+    TTS_VECTOR_DESTROY(ts.timestamps);
+    return 0;
 }
-
-#define TTS_VECTOR_INIT(vec, cap) do {               \
-    assert((cap) > 0);                               \
-    (vec).size = 0;                                  \
-    (vec).capacity = (cap);                          \
-    (vec).data = calloc((cap), sizeof(*(vec).data)); \
-} while (0);
-
-#define TTS_VECTOR_DESTROY(vec) free((vec).data);
-
-#define TTS_VECTOR_SIZE(vec) (vec).size;
-
-#define TTS_VECTOR_CAPACITY(vec) (vec).capacity;
-
-#define TTS_VECTOR_APPEND(vec, item) do {                       \
-    if (TTS_VECTOR_SIZE((vec)) == TTS_VECTOR_CAPACITY((vec)) {  \
-        (vec).capacity *= 2;                                    \
-        (vec).data = realloc((vec).data, (vec).capacity);       \
-    }                                                           \
-    (vec).data[(size)++] = (item);                              \
-} while (0);                                                    \
-
-#define TTS_VECTOR_AT(vec, index) do {           \
-    assert((index) > 0 && (index) < (vec).size); \
-    (vec).data[(index)];                         \
-} while (0);
-
-#endif

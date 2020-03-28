@@ -25,43 +25,35 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TTS_VECTOR_H
-#define TTS_VECTOR_H
+#ifndef TTS_H
+#define TTS_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
+#include "tts_vector.h"
 
-#define TTS_VECTOR(type) struct { \
-    size_t size;                  \
-    size_t capacity;              \
-    type *data;                   \
-}
+#define TTS_TS_NAME_MAX_LENGTH 1 << 9
 
-#define TTS_VECTOR_INIT(vec, cap) do {               \
-    assert((cap) > 0);                               \
-    (vec).size = 0;                                  \
-    (vec).capacity = (cap);                          \
-    (vec).data = calloc((cap), sizeof(*(vec).data)); \
-} while (0);
+/*
+ * Simple record struct, wrap around a column inside the database, defined as a
+ * key-val couple alike
+ */
+struct tts_record {
+    char *field;
+    char *value;
+};
 
-#define TTS_VECTOR_DESTROY(vec) free((vec).data);
-
-#define TTS_VECTOR_SIZE(vec) (vec).size;
-
-#define TTS_VECTOR_CAPACITY(vec) (vec).capacity;
-
-#define TTS_VECTOR_APPEND(vec, item) do {                       \
-    if (TTS_VECTOR_SIZE((vec)) == TTS_VECTOR_CAPACITY((vec)) {  \
-        (vec).capacity *= 2;                                    \
-        (vec).data = realloc((vec).data, (vec).capacity);       \
-    }                                                           \
-    (vec).data[(size)++] = (item);                              \
-} while (0);                                                    \
-
-#define TTS_VECTOR_AT(vec, index) do {           \
-    assert((index) > 0 && (index) < (vec).size); \
-    (vec).data[(index)];                         \
-} while (0);
+/*
+ * Time series, main data structure to handle the time-series, loosely
+ * approachable as a `measurement` concept on influx DB, it carries some basic
+ * informations like the name of the series and the data. Data are stored as
+ * two paired arrays, one indexing the timestamp of each row, the other being
+ * an array of arrays of `tts_record`, this way we can easily store different
+ * number of columns for each row, depending on the presence of the data during
+ * the insertion
+ */
+struct tts_time_series {
+    char name[TTS_TS_NAME_MAX_LENGTH];
+    TTS_VECTOR(unsigned long) timestamps;
+    TTS_VECTOR(TTS_VECTOR(struct record)) columns;
+};
 
 #endif
