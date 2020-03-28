@@ -33,6 +33,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#define TTS_VECTOR_BASE_SIZE 4
+
 #define TTS_VECTOR(type) struct { \
     size_t size;                  \
     size_t capacity;              \
@@ -45,6 +47,8 @@
     (vec).capacity = (cap);                          \
     (vec).data = calloc((cap), sizeof(*(vec).data)); \
 } while (0)
+
+#define TTS_VECTOR_NEW(vec) TTS_VECTOR_INIT((vec), TTS_VECTOR_BASE_SIZE)
 
 #define TTS_VECTOR_DESTROY(vec) free((vec).data)
 
