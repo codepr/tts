@@ -30,8 +30,10 @@
 
 int main(void) {
     struct tts_time_series ts;
-    TTS_VECTOR_INIT(ts.timestamps, 4);
-    TTS_VECTOR_INIT(ts.columns, 4);
+    TTS_VECTOR_INIT(ts.timestamps, 4, sizeof(unsigned long));
+    TTS_VECTOR_INIT(ts.columns, 4, sizeof(TTS_VECTOR(struct tts_record)));
+    for (int i = 0; i < 4; ++i)
+        TTS_VECTOR_NEW(TTS_VECTOR_AT(ts.columns, i), sizeof(struct tts_record));
     TTS_VECTOR_APPEND(ts.timestamps, 1);
     TTS_VECTOR_APPEND(ts.timestamps, 2);
     TTS_VECTOR_APPEND(ts.timestamps, 3);
@@ -40,6 +42,8 @@ int main(void) {
     unsigned long n = 0;
     TTS_VECTOR_BINSEARCH(ts.timestamps, 4, NULL, &n);
     printf("%lu\n", n);
+    for (int i = 0; i < 4; ++i)
+        TTS_VECTOR_DESTROY(TTS_VECTOR_AT(ts.columns, i));
     TTS_VECTOR_DESTROY(ts.columns);
     TTS_VECTOR_DESTROY(ts.timestamps);
     return 0;

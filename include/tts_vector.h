@@ -41,14 +41,14 @@
     type *data;                   \
 }
 
-#define TTS_VECTOR_INIT(vec, cap) do {               \
-    assert((cap) > 0);                               \
-    (vec).size = 0;                                  \
-    (vec).capacity = (cap);                          \
-    (vec).data = calloc((cap), sizeof(*(vec).data)); \
+#define TTS_VECTOR_INIT(vec, cap, item_size) do {   \
+    assert((cap) > 0);                              \
+    (vec).size = 0;                                 \
+    (vec).capacity = (cap);                         \
+    (vec).data = calloc((cap), (item_size));        \
 } while (0)
 
-#define TTS_VECTOR_NEW(vec) TTS_VECTOR_INIT((vec), TTS_VECTOR_BASE_SIZE)
+#define TTS_VECTOR_NEW(vec, item_size) TTS_VECTOR_INIT((vec), TTS_VECTOR_BASE_SIZE, (item_size))
 
 #define TTS_VECTOR_DESTROY(vec) free((vec).data)
 
@@ -64,10 +64,7 @@
     (vec).data[(vec).size++] = (item);                          \
 } while (0)
 
-#define TTS_VECTOR_AT(vec, index) do {           \
-    assert((index) > 0 && (index) < (vec).size); \
-    (vec).data[(index)];                         \
-} while (0)
+#define TTS_VECTOR_AT(vec, index) (vec).data[(index)]
 
 #define TTS_VECTOR_BINSEARCH(vec, target, cmp, res) do { \
     size_t left = 0, middle = 0, right = (vec).size - 1; \
