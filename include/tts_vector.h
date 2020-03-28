@@ -66,7 +66,7 @@
 
 #define TTS_VECTOR_AT(vec, index) (vec).data[(index)]
 
-#define TTS_VECTOR_BINSEARCH(vec, target, cmp, res) do { \
+#define TTS_VECTOR_BINSEARCH(vec, target, res) do {      \
     size_t left = 0, middle = 0, right = (vec).size - 1; \
     int found = 0;                                       \
     while (left <= right) {                              \

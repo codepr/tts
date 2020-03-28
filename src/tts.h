@@ -30,15 +30,16 @@
 
 #include "tts_vector.h"
 
-#define TTS_TS_NAME_MAX_LENGTH 1 << 9
+#define TTS_TS_FIELDS_MAX_NUMBER 1 << 8
+#define TTS_TS_NAME_MAX_LENGTH   1 << 9
 
 /*
  * Simple record struct, wrap around a column inside the database, defined as a
- * key-val couple alike
+ * key-val couple alike, though it's used only to describe the value of each
+ * column
  */
 struct tts_record {
-    char *field;
-    char *value;
+    void *value;
 };
 
 /*
@@ -48,11 +49,15 @@ struct tts_record {
  * two paired arrays, one indexing the timestamp of each row, the other being
  * an array of arrays of `tts_record`, this way we can easily store different
  * number of columns for each row, depending on the presence of the data during
- * the insertion
+ * the insertion.
+ * A third array is used to store the fields name, each row (index in the
+ * columns array) will be paired with the fields array to retrieve what field
+ * it refers to, if present.
  */
 struct tts_time_series {
     char name[TTS_TS_NAME_MAX_LENGTH];
     TTS_VECTOR(unsigned long) timestamps;
+    TTS_VECTOR(char *) fields;
     TTS_VECTOR(TTS_VECTOR(struct record)) columns;
 };
 

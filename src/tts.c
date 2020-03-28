@@ -40,7 +40,7 @@ int main(void) {
     TTS_VECTOR_APPEND(ts.timestamps, 4);
     printf("size: %lu\n", TTS_VECTOR_SIZE(ts.timestamps));
     unsigned long n = 0;
-    TTS_VECTOR_BINSEARCH(ts.timestamps, 4, NULL, &n);
+    TTS_VECTOR_BINSEARCH(ts.timestamps, 4, &n);
     printf("%lu\n", n);
     for (int i = 0; i < 4; ++i)
         TTS_VECTOR_DESTROY(TTS_VECTOR_AT(ts.columns, i));
