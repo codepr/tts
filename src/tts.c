@@ -25,12 +25,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stdio.h>
 #include "tts.h"
 
 int main(void) {
     struct tts_time_series ts;
     TTS_VECTOR_INIT(ts.timestamps, 4);
     TTS_VECTOR_INIT(ts.columns, 4);
+    TTS_VECTOR_APPEND(ts.timestamps, 1);
+    TTS_VECTOR_APPEND(ts.timestamps, 2);
+    TTS_VECTOR_APPEND(ts.timestamps, 3);
+    TTS_VECTOR_APPEND(ts.timestamps, 4);
+    printf("size: %lu\n", TTS_VECTOR_SIZE(ts.timestamps));
+    unsigned long n = 0;
+    TTS_VECTOR_BINSEARCH(ts.timestamps, 4, NULL, &n);
+    printf("%lu\n", n);
     TTS_VECTOR_DESTROY(ts.columns);
     TTS_VECTOR_DESTROY(ts.timestamps);
     return 0;
