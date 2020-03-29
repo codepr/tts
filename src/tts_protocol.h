@@ -36,6 +36,11 @@
 #define TTS_ADDPOINTS 0x02
 #define TTS_QUERY     0x03
 
+/* First two mandatory fields on each command */
+#define TS_NAME_FIELD                              \
+    unsigned char ts_name_len;                     \
+    unsigned char ts_name[TTS_TS_NAME_MAX_LENGTH]; \
+
 /*
  * Simple header to describe the command to be executed, it's formed just by a
  * single byte
@@ -49,8 +54,7 @@ struct tts_header {
  * fields, like a dead-simple schema for the columns of the series
  */
 struct tts_create {
-    unsigned char ts_name_len;
-    unsigned char ts_name[TTS_TS_NAME_MAX_LENGTH];
+    TS_NAME_FIELD
     struct {
         unsigned short field_len;
         unsigned char *field;
@@ -61,8 +65,7 @@ struct tts_create {
  * Command TTS_DELETE, destroy a time series represented by a name
  */
 struct tts_delete {
-    unsigned char ts_name_len;
-    unsigned char ts_name[TTS_TS_NAME_MAX_LENGTH];
+    TS_NAME_FIELD
 };
 
 /*
@@ -74,8 +77,7 @@ struct tts_delete {
  * TODO Add tags field, to be indexed, probably in a hashmap
  */
 struct tts_addpoints {
-    unsigned char ts_name_len;
-    unsigned char ts_name[TTS_TS_NAME_MAX_LENGTH];
+    TS_NAME_FIELD
     struct {
         unsigned short field_len;
         unsigned char *field;
@@ -107,8 +109,7 @@ struct tts_query {
             unsigned reserved : 3;
         } bits;
     };
-    unsigned char ts_name_len;
-    unsigned char ts_name[TTS_TS_NAME_MAX_LENGTH];
+    TS_NAME_FIELD
     unsigned short field_len;
     unsigned char *field;
     unsigned long mean_val;   // present only if mean = 1

@@ -35,10 +35,10 @@
 
 #define TTS_VECTOR_BASE_SIZE 4
 
-#define TTS_VECTOR(type) struct { \
-    size_t size;                  \
-    size_t capacity;              \
-    type *data;                   \
+#define TTS_VECTOR(T) struct { \
+    size_t size;               \
+    size_t capacity;           \
+    T *data;                   \
 }
 
 #define TTS_VECTOR_INIT(vec, cap, item_size) do {   \
