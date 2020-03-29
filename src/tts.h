@@ -28,6 +28,7 @@
 #ifndef TTS_H
 #define TTS_H
 
+#include <time.h>
 #include "tts_vector.h"
 
 #define TTS_TS_FIELDS_MAX_NUMBER 1 << 8
@@ -56,9 +57,33 @@ struct tts_record {
  */
 struct tts_time_series {
     char name[TTS_TS_NAME_MAX_LENGTH];
-    TTS_VECTOR(unsigned long) timestamps;
+    TTS_VECTOR(struct timespec) timestamps;
     TTS_VECTOR(char *) fields;
     TTS_VECTOR(TTS_VECTOR(struct record)) columns;
 };
+
+/*
+ * Compare two timespec structure, now timespec is composed of seconds and
+ * nanoseconds values of the current CLOCK.
+ *
+ * It returns an integer following the rules:
+ *
+ * . -1 t1 is lesser than t2
+ * .  0 t1 is equal to t2
+ * .  1 t1 is greater than t2
+ */
+static inline int timespec_compare(const struct timespec *t1,
+                                   const struct timespec *t2) {
+    if (t1->tv_sec == t2->tv_sec) {
+        if (t1->tv_nsec == t2->tv_nsec)
+            return 0;
+        else if (t1->tv_nsec > t2->tv_nsec)
+            return 1;
+    } else {
+        if (t1->tv_sec > t2->tv_sec)
+            return 1;
+    }
+    return -1;
+}
 
 #endif

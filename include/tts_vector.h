@@ -48,7 +48,8 @@
     (vec).data = calloc((cap), (item_size));        \
 } while (0)
 
-#define TTS_VECTOR_NEW(vec, item_size) TTS_VECTOR_INIT((vec), TTS_VECTOR_BASE_SIZE, (item_size))
+#define TTS_VECTOR_NEW(vec, item_size) \
+    TTS_VECTOR_INIT((vec), TTS_VECTOR_BASE_SIZE, (item_size))
 
 #define TTS_VECTOR_DESTROY(vec) free((vec).data)
 
@@ -66,24 +67,24 @@
 
 #define TTS_VECTOR_AT(vec, index) (vec).data[(index)]
 
-#define TTS_VECTOR_BINSEARCH(vec, target, res) do {      \
-    size_t left = 0, middle = 0, right = (vec).size - 1; \
-    int found = 0;                                       \
-    while (left <= right) {                              \
-        middle = floor((left + right) / 2);              \
-        if ((vec).data[middle] < (target)) {             \
-            left = middle + 1;                           \
-        } else if ((vec).data[middle] > (target)) {      \
-            right = middle - 1;                          \
-        } else {                                         \
-            *(res) = middle;                             \
-            found = 1;                                   \
-            break;                                       \
-        }                                                \
-    }                                                    \
-    if (found == 0) {                                    \
-        *(res) = -1;                                     \
-    }                                                    \
+#define TTS_VECTOR_BINSEARCH(vec, target, cmp, res) do {       \
+    size_t left = 0, middle = 0, right = (vec).size - 1;       \
+    int found = 0;                                             \
+    while (left <= right) {                                    \
+        middle = floor((left + right) / 2);                    \
+        if ((cmp)(&(vec).data[middle], (target)) < 0) {        \
+            left = middle + 1;                                 \
+        } else if ((cmp)(&(vec).data[middle], (target)) > 0) { \
+            right = middle - 1;                                \
+        } else {                                               \
+            *(res) = middle;                                   \
+            found = 1;                                         \
+            break;                                             \
+        }                                                      \
+    }                                                          \
+    if (found == 0) {                                          \
+        *(res) = -1;                                           \
+    }                                                          \
 } while (0)
 
 #endif
