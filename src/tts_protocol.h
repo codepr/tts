@@ -29,6 +29,7 @@
 #define TTS_PROTOCOL_H
 
 #include "tts.h"
+#include <stdint.h>
 
 // Return codes for ACK response
 #define OK  0
@@ -43,16 +44,16 @@
 #define TTS_QUERY_RESPONSE 0x05
 
 /* First two mandatory fields on each command */
-#define TS_NAME_FIELD                              \
-    unsigned char ts_name_len;                     \
-    unsigned char ts_name[TTS_TS_NAME_MAX_LENGTH]; \
+#define TS_NAME_FIELD                        \
+    uint8_t ts_name_len;                     \
+    uint8_t ts_name[TTS_TS_NAME_MAX_LENGTH]; \
 
 /*
  * Simple header to describe the command to be executed, it's formed just by a
  * single byte
  */
 struct tts_header {
-    unsigned char byte;
+    uint8_t byte;
 };
 
 /*
@@ -62,9 +63,9 @@ struct tts_header {
 struct tts_create {
     TS_NAME_FIELD
     struct {
-        unsigned short field_len;
-        unsigned char *field;
-    } fields;
+        uint16_t field_len;
+        uint8_t *field;
+    } *fields;
 };
 
 /*
@@ -85,12 +86,12 @@ struct tts_delete {
 struct tts_addpoints {
     TS_NAME_FIELD
     struct {
-        unsigned short field_len;
-        unsigned char *field;
-        unsigned short value_len;
-        unsigned char *value;
-        unsigned long timestamp;
-    } points;
+        uint16_t field_len;
+        uint8_t *field;
+        uint16_t value_len;
+        uint8_t *value;
+        uint64_t timestamp;
+    } *points;
 };
 
 /*
@@ -105,22 +106,22 @@ struct tts_addpoints {
  */
 struct tts_query {
     union {
-        unsigned char byte;
+        uint8_t byte;
         struct {
-            unsigned mean : 1;
-            unsigned first : 1;
-            unsigned last : 1;
-            unsigned major_of : 1;
-            unsigned minor_of : 1;
-            unsigned reserved : 3;
+            uint8_t mean : 1;
+            uint8_t first : 1;
+            uint8_t last : 1;
+            uint8_t major_of : 1;
+            uint8_t minor_of : 1;
+            uint8_t reserved : 3;
         } bits;
     };
     TS_NAME_FIELD
-    unsigned short field_len;
-    unsigned char *field;
-    unsigned long mean_val;   // present only if mean = 1
-    unsigned long major_of;   // present only if major_of = 1
-    unsigned long minor_of;   // present only if minor_of = 1
+    uint16_t field_len;
+    uint8_t *field;
+    uint64_t mean_val;   // present only if mean = 1
+    uint64_t major_of;   // present only if major_of = 1
+    uint64_t minor_of;   // present only if minor_of = 1
 };
 
 /*
@@ -129,7 +130,7 @@ struct tts_query {
  * restrictions of sort, it's enough.
  */
 struct tts_ack {
-    unsigned char rc;
+    uint8_t rc;
 };
 
 /*
@@ -138,14 +139,14 @@ struct tts_ack {
  */
 struct tts_query_ack {
     struct {
-        unsigned char rc;
-        unsigned short field_len;
-        unsigned char *field;
-        unsigned short value_len;
-        unsigned char *value;
-        unsigned long ts_sec;
-        unsigned long ts_nsec;
-    } results;
+        uint8_t rc;
+        uint16_t field_len;
+        uint8_t *field;
+        uint16_t value_len;
+        uint8_t *value;
+        uint64_t ts_sec;
+        uint64_t ts_nsec;
+    } *results;
 };
 
 /*
