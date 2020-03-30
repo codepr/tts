@@ -26,6 +26,7 @@
  */
 
 #include <stdlib.h>
+#include "pack.h"
 #include "tts_protocol.h"
 
 /*
@@ -53,8 +54,10 @@
  * The last two steps, will be repeated until the expected length of the packet
  * is exhausted.
  */
-void unpack_tts_create(const uint8_t *buf, size_t len, struct tts_create *c) {
-    unpack_integer(&buf, 'H', &c->ts_name_len);
+void unpack_tts_create(uint8_t *buf, size_t len, struct tts_create *c) {
+    int64_t val = 0;
+    unpack_integer(&buf, 'H', &val);
+    c->ts_name_len = val;
     c->ts_name = malloc(c->ts_name_len + 1);
     unpack_bytes(&buf, c->ts_name_len, c->ts_name);
     for (int i = 0; len > 0; ++i) {
@@ -63,7 +66,8 @@ void unpack_tts_create(const uint8_t *buf, size_t len, struct tts_create *c) {
          * additional incoming tuples
          */
         c->fields = realloc(c->fields, (i + 1) * sizeof(*c->fields));
-        unpack_integer(&buf, 'H', &c->fields[i].field_len);
+        unpack_integer(&buf, 'H', &val);
+        c->fields[i].field_len = val;
         c->fields[i].field = malloc(c->fields[i].field_len + 1);
         unpack_bytes(&buf, c->fields[i].field_len, c->fields[i].field);
         len -= sizeof(uint16_t) + c->fields[i].field_len;
@@ -86,8 +90,11 @@ void unpack_tts_create(const uint8_t *buf, size_t len, struct tts_create *c) {
  * | Byte N     |                                                  |
  * |____________|__________________________________________________|
  */
-void unpack tts_delete(const uint8_t *buf, size_t len, struct tts_delete *d) {
-    unpack_integer(&buf, 'H', &d->ts_name_len);
+void unpack_tts_delete(uint8_t *buf, size_t len, struct tts_delete *d) {
+    (void) len;
+    int64_t val = 0;
+    unpack_integer(&buf, 'H', &val);
+    d->ts_name_len = val;
     d->ts_name = malloc(d->ts_name_len + 1);
     unpack_bytes(&buf, d->ts_name_len, d->ts_name);
 }
@@ -127,18 +134,21 @@ void unpack tts_delete(const uint8_t *buf, size_t len, struct tts_delete *d) {
  * The steps starting at [Array start] will be repeated until the expected
  * length of the packet is exhausted.
  */
-void unpack_tts_addpoints(const uint8_t *buf, size_t len,
-                          struct tts_addpoints *a) {
-    unpack_integer(&buf, 'H', &a->ts_name_len);
+void unpack_tts_addpoints(uint8_t *buf, size_t len, struct tts_addpoints *a) {
+    int64_t val = 0;
+    unpack_integer(&buf, 'H', &val);
+    a->ts_name_len = val;
     a->ts_name = malloc(a->ts_name_len + 1);
     unpack_bytes(&buf, a->ts_name_len, a->ts_name);
     len -= sizeof(uint16_t) + a->ts_name_len;
     for (int i = 0; len > 0; ++i) {
         a->points = realloc(a->points, sizeof(*a->points));
-        unpack_integer(&buf, 'H', &a->points[i].field_len);
+        unpack_integer(&buf, 'H', &val);
+        a->points[i].field_len = val;
         a->points[i].field = malloc(a->points[i].field_len + 1);
         unpack_bytes(&buf, a->points[i].field_len, a->points[i].field);
-        unpack_integer(&buf, 'H', &a->points[i].value_len);
+        unpack_integer(&buf, 'H', &val);
+        a->points[i].value_len = val;
         a->points[i].value = malloc(a->points[i].value_len + 1);
         unpack_bytes(&buf, a->points[i].value_len, a->points[i].value);
         // Update the length remaining after the unpack of the field + value
@@ -146,8 +156,10 @@ void unpack_tts_addpoints(const uint8_t *buf, size_t len,
         len -= sizeof(uint16_t) * 2 +
             a->points[i].field_len + a->points[i].value_len;
         // Unpack the seconds and nanoseconds component of the timestamp
-        unpack_integer(&buf, 'Q', &a->points[i].ts_sec);
-        unpack_integer(&buf, 'Q', &a->points[i].ts_nsec);
+        unpack_integer(&buf, 'Q', &val);
+        a->points[i].ts_sec = val;
+        unpack_integer(&buf, 'Q', &val);
+        a->points[i].ts_nsec = val;
         len -= sizeof(uint64_t) * 2;
         ++a->points_len;
     }
