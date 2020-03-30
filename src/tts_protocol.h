@@ -62,6 +62,7 @@ struct tts_header {
  */
 struct tts_create {
     TS_NAME_FIELD
+    uint16_t fields_len;
     struct {
         uint16_t field_len;
         uint8_t *field;
@@ -85,6 +86,7 @@ struct tts_delete {
  */
 struct tts_addpoints {
     TS_NAME_FIELD
+    uint16_t points_len;
     struct {
         uint16_t field_len;
         uint8_t *field;
