@@ -44,9 +44,9 @@
 #define TTS_QUERY_RESPONSE 0x05
 
 /* First two mandatory fields on each command */
-#define TS_NAME_FIELD                        \
-    uint8_t ts_name_len;                     \
-    uint8_t ts_name[TTS_TS_NAME_MAX_LENGTH]; \
+#define TS_NAME_FIELD    \
+    uint8_t ts_name_len; \
+    uint8_t *ts_name;    \
 
 /*
  * Simple header to describe the command to be executed, it's formed just by a
