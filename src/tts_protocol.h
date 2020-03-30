@@ -30,11 +30,17 @@
 
 #include "tts.h"
 
+// Return codes for ACK response
+#define OK  0
+#define NOK 1
+
 // Base command bytes, draft
-#define TTS_CREATE    0x00
-#define TTS_DELETE    0x01
-#define TTS_ADDPOINTS 0x02
-#define TTS_QUERY     0x03
+#define TTS_CREATE         0x00
+#define TTS_DELETE         0x01
+#define TTS_ADDPOINTS      0x02
+#define TTS_QUERY          0x03
+#define TTS_ACK            0x04
+#define TTS_QUERY_RESPONSE 0x05
 
 /* First two mandatory fields on each command */
 #define TS_NAME_FIELD                              \
@@ -115,6 +121,47 @@ struct tts_query {
     unsigned long mean_val;   // present only if mean = 1
     unsigned long major_of;   // present only if major_of = 1
     unsigned long minor_of;   // present only if minor_of = 1
+};
+
+/*
+ * Just an ACK response, stating the outcome of the operation requested. Return
+ * code can be either an OK and a NOK for now, without authentication and
+ * restrictions of sort, it's enough.
+ */
+struct tts_ack {
+    unsigned char rc;
+};
+
+/*
+ * An ACK response for a query request, it carries an array of tuples with
+ * return codes and optional values as part of the result of the query issued
+ */
+struct tts_query_ack {
+    struct {
+        unsigned char rc;
+        unsigned short field_len;
+        unsigned char *field;
+        unsigned short value_len;
+        unsigned char *value;
+        unsigned long ts_sec;
+        unsigned long ts_nsec;
+    } results;
+};
+
+/*
+ * Generic TTS packet, it can contains requests or responses, based on the
+ * header opcode, just a union of previously defined structures
+ */
+struct tts_packet {
+    struct tts_header header;
+    union {
+        struct tts_create create;
+        struct tts_delete drop;  // just to avoid keyword naming clash
+        struct tts_addpoints addpoints;
+        struct tts_query query;
+        struct tts_ack ack;
+        struct tts_query_ack query_ack;
+    };
 };
 
 #endif

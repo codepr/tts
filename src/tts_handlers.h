@@ -30,6 +30,8 @@
 
 #include "ev.h"
 
+struct tts_packet;
+
 int tts_handle_tts_create(struct tts_packet *, ev_tcp_client *);
 int tts_handle_tts_delete(struct tts_packet *, ev_tcp_client *);
 int tts_handle_tts_addpoints(struct tts_packet *, ev_tcp_client *);
