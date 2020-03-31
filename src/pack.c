@@ -49,7 +49,8 @@ void packi32(uint8_t *buf, uint32_t val) {
 }
 
 /*
- * packi64() -- store a 64-bit int into a char buffer (like htonl())
+ * packi64() -- store a 64-bit int into a char buffer (like htonl()),
+ * endiannes-agnostic
  */
 void packi64(uint8_t *buf, uint64_t val) {
     *buf++ = val >> 56; *buf++ = val >> 48;
@@ -60,6 +61,7 @@ void packi64(uint8_t *buf, uint64_t val) {
 
 /*
  * unpacku16() -- unpack a 16-bit unsigned from a char buffer (like ntohs())
+ * endiannes-agnostic
  */
 uint32_t unpacku16(uint8_t *buf) {
     return ((uint32_t) buf[0] << 8) | buf[1];
@@ -67,6 +69,7 @@ uint32_t unpacku16(uint8_t *buf) {
 
 /*
  * unpacki16() -- unpack a 16-bit int from a char buffer (like ntohs())
+ * endiannes-agnostic
  */
 int32_t unpacki16(uint8_t *buf) {
     uint32_t i2 = unpacku16(buf);
@@ -83,6 +86,7 @@ int32_t unpacki16(uint8_t *buf) {
 
 /*
  * unpacku32() -- unpack a 32-bit unsigned from a char buffer (like ntohl())
+ * endiannes-agnostic
  */
 uint64_t unpacku32(uint8_t *buf) {
     return ((uint64_t) buf[0] << 24) |
@@ -93,6 +97,7 @@ uint64_t unpacku32(uint8_t *buf) {
 
 /*
  * unpacki32() -- unpack a 32-bit int from a char buffer (like ntohl())
+ * endiannes-agnostic
  */
 int64_t unpacki32(uint8_t *buf) {
     uint64_t i2 = unpacku32(buf);
@@ -109,6 +114,7 @@ int64_t unpacki32(uint8_t *buf) {
 
 /*
  * unpacku64() -- unpack a 64-bit unsigned from a char buffer (like ntohl())
+ * endiannes-agnostic
  */
 uint64_t unpacku64(uint8_t *buf) {
     return ((uint64_t) buf[0] << 56) |
@@ -123,6 +129,7 @@ uint64_t unpacku64(uint8_t *buf) {
 
 /*
  * unpacki64() -- unpack a 64-bit int from a char buffer (like ntohl())
+ * endiannes-agnostic
  */
 int64_t unpacki64(uint8_t *buf) {
     uint64_t i2 = unpacku64(buf);
