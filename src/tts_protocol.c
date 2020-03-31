@@ -34,27 +34,27 @@
  * pretty simple, we just proceed populating each member with its value from
  * the buffer, starting right after the header byte and the size:
  *
- * |   Bit      |  7  |  6  |  5  |  4  |  3  |  2  |  1  |   0    |
- * |------------|--------------------------------------------------|
- * | Byte 5     |           Time series name len MSB               |
- * | Byte 6     |           Time series name len LSB               |
- * |------------|--------------------------------------------------|
- * | Byte 7     |                                                  |
- * |   .        |               Time series name                   |
- * | Byte N     |                                                  |
- * |------------|--------------------------------------------------|<- Array start
- * | Byte N+1   |                 Field len MSB                    |
- * | Byte N+2   |                 Field len LSB                    |
- * |------------|--------------------------------------------------|
- * | Byte N+3   |                                                  |
- * |   .        |                   Field name                     |
- * | Byte N+M   |                                                  |
- * |____________|__________________________________________________|
+ * |   Bit      |  7  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
+ * |------------|-----------------------------------------------|
+ * | Byte 5     |          Time series name len MSB             |
+ * | Byte 6     |          Time series name len LSB             |
+ * |------------|-----------------------------------------------|
+ * | Byte 7     |                                               |
+ * |   .        |              Time series name                 |
+ * | Byte N     |                                               |
+ * |------------|-----------------------------------------------|<- Array start
+ * | Byte N+1   |                Field len MSB                  |
+ * | Byte N+2   |                Field len LSB                  |
+ * |------------|-----------------------------------------------|
+ * | Byte N+3   |                                               |
+ * |   .        |                  Field name                   |
+ * | Byte N+M   |                                               |
+ * |____________|_______________________________________________|
  *
  * The last two steps, will be repeated until the expected length of the packet
  * is exhausted.
  */
-void unpack_tts_create(uint8_t *buf, size_t len, struct tts_create *c) {
+static void unpack_tts_create(uint8_t *buf, size_t len, struct tts_create *c) {
     int64_t val = 0;
     unpack_integer(&buf, 'H', &val);
     c->ts_name_len = val;
@@ -80,17 +80,17 @@ void unpack_tts_create(uint8_t *buf, size_t len, struct tts_create *c) {
  * the most simple (excluding the ACK which we don't expect to unpack as of
  * now)
  *
- * |   Bit      |  7  |  6  |  5  |  4  |  3  |  2  |  1  |   0    |
- * |------------|--------------------------------------------------|
- * | Byte 5     |           Time series name len MSB               |
- * | Byte 6     |           Time series name len LSB               |
- * |------------|--------------------------------------------------|
- * | Byte 7     |                                                  |
- * |   .        |               Time series name                   |
- * | Byte N     |                                                  |
- * |____________|__________________________________________________|
+ * |   Bit      |  7  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
+ * |------------|-----------------------------------------------|
+ * | Byte 5     |          Time series name len MSB             |
+ * | Byte 6     |          Time series name len LSB             |
+ * |------------|-----------------------------------------------|
+ * | Byte 7     |                                               |
+ * |   .        |              Time series name                 |
+ * | Byte N     |                                               |
+ * |____________|_______________________________________________|
  */
-void unpack_tts_delete(uint8_t *buf, size_t len, struct tts_delete *d) {
+static void unpack_tts_delete(uint8_t *buf, size_t len, struct tts_delete *d) {
     (void) len;
     int64_t val = 0;
     unpack_integer(&buf, 'H', &val);
@@ -103,38 +103,39 @@ void unpack_tts_delete(uint8_t *buf, size_t len, struct tts_delete *d) {
  * Unpack from binary to struct tts_addpoints packet, the form of the packet is
  * the following, not that different from the previous
  *
- * |   Bit      |  7  |  6  |  5  |  4  |  3  |  2  |  1  |   0    |
- * |------------|--------------------------------------------------|
- * | Byte 5     |           Time series name len MSB               |
- * | Byte 6     |           Time series name len LSB               |
- * |------------|--------------------------------------------------|
- * | Byte 7     |                                                  |
- * |   .        |               Time series name                   |
- * | Byte N     |                                                  |
- * |------------|--------------------------------------------------|<- Array start
- * | Byte N+1   |                 Field len MSB                    |
- * | Byte N+2   |                 Field len LSB                    |
- * |------------|--------------------------------------------------|
- * | Byte N+3   |                                                  |
- * |   .        |                   Field name                     |
- * | Byte N+M   |                                                  |
- * |------------|--------------------------------------------------|
- * | Byte K     |                 Value len MSB                    |
- * | Byte K+1   |                 Value len LSB                    |
- * |------------|--------------------------------------------------|
- * | Byte K+2   |                                                  |
- * |   .        |           Timestamp seconds component            |
- * | Byte K+10  |                                                  |
- * |------------|--------------------------------------------------|
- * | Byte K+11  |                                                  |
- * |   .        |         Timestamp nanoseconds component          |
- * | Byte K+19  |                                                  |
- * |____________|__________________________________________________|
+ * |   Bit      |  7  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
+ * |------------|-----------------------------------------------|
+ * | Byte 5     |          Time series name len MSB             |
+ * | Byte 6     |          Time series name len LSB             |
+ * |------------|-----------------------------------------------|
+ * | Byte 7     |                                               |
+ * |   .        |              Time series name                 |
+ * | Byte N     |                                               |
+ * |------------|-----------------------------------------------|<- Array start
+ * | Byte N+1   |                Field len MSB                  |
+ * | Byte N+2   |                Field len LSB                  |
+ * |------------|-----------------------------------------------|
+ * | Byte N+3   |                                               |
+ * |   .        |                 Field name                    |
+ * | Byte N+M   |                                               |
+ * |------------|-----------------------------------------------|
+ * | Byte K     |                Value len MSB                  |
+ * | Byte K+1   |                Value len LSB                  |
+ * |------------|-----------------------------------------------|
+ * | Byte K+2   |                                               |
+ * |   .        |          Timestamp seconds component          |
+ * | Byte K+10  |                                               |
+ * |------------|-----------------------------------------------|
+ * | Byte K+11  |                                               |
+ * |   .        |        Timestamp nanoseconds component        |
+ * | Byte K+19  |                                               |
+ * |____________|_______________________________________________|
  *
  * The steps starting at [Array start] will be repeated until the expected
  * length of the packet is exhausted.
  */
-void unpack_tts_addpoints(uint8_t *buf, size_t len, struct tts_addpoints *a) {
+static void unpack_tts_addpoints(uint8_t *buf, size_t len,
+                                 struct tts_addpoints *a) {
     int64_t val = 0;
     unpack_integer(&buf, 'H', &val);
     a->ts_name_len = val;
@@ -162,5 +163,77 @@ void unpack_tts_addpoints(uint8_t *buf, size_t len, struct tts_addpoints *a) {
         a->points[i].ts_nsec = val;
         len -= sizeof(uint64_t) * 2;
         ++a->points_len;
+    }
+}
+
+/*
+ * Unpack from binary to struct tts_query packet:
+ *
+ * |   Bit      |  7  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
+ * |------------|-----------------------------------------------|
+ * | Byte 5     | avg |first| last|  gt |  lt |    reserved     |
+ * |------------|-----------------------------------------------|
+ * | Byte 6     |          Time series name len MSB             |
+ * | Byte 7     |          Time series name len LSB             |
+ * |------------|-----------------------------------------------|
+ * | Byte 8     |                                               |
+ * |   .        |              Time series name                 |
+ * | Byte N     |                                               |
+ * |------------|-----------------------------------------------|
+ * | Byte N+1   |                                               |
+ * |   .        |           Mean value (if avg == 1)            |
+ * | Byte N+7   |                                               |
+ * |------------|-----------------------------------------------|
+ * | Byte N+8   |                                               |
+ * |   .        |          First value (if first == 1)          |
+ * | Byte N+15  |                                               |
+ * |------------|-----------------------------------------------|
+ * | Byte N+16  |                                               |
+ * |   .        |        Major-of value (if major_of == 1)      |
+ * | Byte N+23  |                                               |
+ * |------------|-----------------------------------------------|
+ * | Byte N+24  |                                               |
+ * |   .        |        Minor-of value (if minor_of == 1)      |
+ * | Byte N+31  |                                               |
+ * |____________|_______________________________________________|
+ */
+static void unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
+    int64_t val = 0;
+    unpack_integer(&buf, 'B', &val);
+    q->byte = val;
+    unpack_integer(&buf, 'H', &val);
+    q->ts_name_len = val;
+    q->ts_name = malloc(q->ts_name_len + 1);
+    unpack_bytes(&buf, q->ts_name_len, q->ts_name);
+    len -= sizeof(uint8_t) + sizeof(uint16_t) + q->ts_name_len;
+    unpack_integer(&buf, 'Q', (int64_t *) &q->mean_val);
+    unpack_integer(&buf, 'Q', (int64_t *) &q->major_of);
+    unpack_integer(&buf, 'Q', (int64_t *) &q->minor_of);
+    len -= sizeof(uint64_t) * 3;
+}
+
+/*
+ * Unpack a tts_packet, after reading the header opcode and the length of the
+ * entire packet, calls the right unpack function based on the command type
+ */
+void unpack_tts_packet(uint8_t *buf, struct tts_packet *tts_p) {
+    size_t len = 0;
+    int64_t val = 0;
+    tts_p->header.byte = *buf;
+    unpack_integer(&buf, 'I', &val);
+    len = val;
+    switch(tts_p->header.byte) {
+        case TTS_CREATE:
+            unpack_tts_create(buf, len, &tts_p->create);
+            break;
+        case TTS_DELETE:
+            unpack_tts_delete(buf, len, &tts_p->drop);
+            break;
+        case TTS_ADDPOINTS:
+            unpack_tts_addpoints(buf, len, &tts_p->addpoints);
+            break;
+        case TTS_QUERY:
+            unpack_tts_query(buf, len, &tts_p->query);
+            break;
     }
 }

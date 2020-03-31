@@ -100,10 +100,14 @@ struct tts_addpoints {
 /*
  * Command TTS_QUERY, generic query command to retrieve one or more points,
  * depending on the flag passed in, in different forms:
+ *
  * - MEAN
  * - FIRST
  * - LAST
  * - <TBD>
+ *
+ * Proceeding in incremental improvements, for now we just accept seconds as
+ * values on mean_val, major_of, minor_of.
  *
  * TODO Add tags field, to be indexed, probably in a hashmap
  */
@@ -120,8 +124,6 @@ struct tts_query {
         } bits;
     };
     TS_NAME_FIELD
-    uint16_t field_len;
-    uint8_t *field;
     uint64_t mean_val;   // present only if mean = 1
     uint64_t major_of;   // present only if major_of = 1
     uint64_t minor_of;   // present only if minor_of = 1
@@ -167,5 +169,7 @@ struct tts_packet {
         struct tts_query_ack query_ack;
     };
 };
+
+void unpack_tts_packet(uint8_t *, struct tts_packet *);
 
 #endif
