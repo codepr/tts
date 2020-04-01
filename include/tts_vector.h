@@ -67,24 +67,30 @@
 
 #define TTS_VECTOR_AT(vec, index) (vec).data[(index)]
 
-#define TTS_VECTOR_BINSEARCH(vec, target, cmp, res) do {       \
-    size_t left = 0, middle = 0, right = (vec).size - 1;       \
-    int found = 0;                                             \
-    while (left <= right) {                                    \
-        middle = floor((left + right) / 2);                    \
-        if ((cmp)(&(vec).data[middle], (target)) < 0) {        \
-            left = middle + 1;                                 \
-        } else if ((cmp)(&(vec).data[middle], (target)) > 0) { \
-            right = middle - 1;                                \
-        } else {                                               \
-            *(res) = middle;                                   \
-            found = 1;                                         \
-            break;                                             \
-        }                                                      \
-    }                                                          \
-    if (found == 0) {                                          \
-        *(res) = -1;                                           \
-    }                                                          \
+#define TTS_VECTOR_BINSEARCH(vec, target, cmp, res) do {           \
+    if ((cmp)(&(vec).data[0], (target)) >= 0) {                    \
+        *(res) = 0;                                                \
+    } else if ((cmp)(&(vec).data[(vec).size-1], (target)) <= 0) {  \
+        *(res) = (vec).size - 1;                                   \
+    } else {                                                       \
+        size_t left = 0, middle = 0, right = (vec).size - 1;       \
+        int found = 0;                                             \
+        while (left <= right) {                                    \
+            middle = floor((left + right) / 2);                    \
+            if ((cmp)(&(vec).data[middle], (target)) < 0) {        \
+                left = middle + 1;                                 \
+            } else if ((cmp)(&(vec).data[middle], (target)) > 0) { \
+                right = middle - 1;                                \
+            } else {                                               \
+                *(res) = middle;                                   \
+                found = 1;                                         \
+                break;                                             \
+            }                                                      \
+        }                                                          \
+        if (found == 0) {                                          \
+            *(res) = left;                                        \
+        }                                                          \
+    }                                                              \
 } while (0)
 
 #endif

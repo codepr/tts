@@ -54,7 +54,7 @@ int main(void) {
     struct timespec tspec;
     if (n != -1) {
         tspec = TTS_VECTOR_AT(ts.timestamps, n);
-        printf("%i -> %lu%lu\n", n, tspec.tv_sec, tspec.tv_nsec);
+        printf("%i -> %lu %lu\n", n, tspec.tv_sec, tspec.tv_nsec);
     }
     for (int i = 0; i < 4; ++i) {
         tspec = TTS_VECTOR_AT(ts.timestamps, i);
