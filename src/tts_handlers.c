@@ -44,6 +44,7 @@ int tts_handle_tts_create(struct tts_packet *packet, ev_tcp_handle *handle) {
 int tts_handle_tts_delete(struct tts_packet *packet, ev_tcp_handle *handle) {
     (void) handle;
     printf("Time series %s\n", packet->drop.ts_name);
+    handle->buffer.size = pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
     return TTS_OK;
 }
 
