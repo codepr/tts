@@ -28,13 +28,14 @@
 #ifndef TTS_HANDLERS_H
 #define TTS_HANDLERS_H
 
-#include "ev.h"
+#include "ev_tcp.h"
 
 struct tts_packet;
 
-int tts_handle_tts_create(struct tts_packet *, ev_tcp_client *);
-int tts_handle_tts_delete(struct tts_packet *, ev_tcp_client *);
-int tts_handle_tts_addpoints(struct tts_packet *, ev_tcp_client *);
-int tts_handle_tts_query(struct tts_packet *, ev_tcp_client *);
+int tts_handle_tts_create(struct tts_packet *, ev_tcp_handle *);
+int tts_handle_tts_delete(struct tts_packet *, ev_tcp_handle *);
+int tts_handle_tts_addpoints(struct tts_packet *, ev_tcp_handle *);
+int tts_handle_tts_query(struct tts_packet *, ev_tcp_handle *);
+int tts_handle_packet(struct tts_packet *, ev_tcp_handle *);
 
 #endif

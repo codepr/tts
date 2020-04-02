@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "tts.h"
+#include "tts_server.h"
 
 int main(void) {
     struct tts_time_series ts;
@@ -63,5 +64,7 @@ int main(void) {
     }
     TTS_VECTOR_DESTROY(ts.columns);
     TTS_VECTOR_DESTROY(ts.timestamps);
+
+    tts_start_server("127.0.0.1", 6767);
     return 0;
 }

@@ -28,8 +28,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define EV_SOURCE
+#define EV_TCP_SOURCE
 #include "ev_tcp.h"
 #include "tts_server.h"
+#include "tts_handlers.h"
+#include "tts_protocol.h"
 
 #define BACKLOG 128
 
@@ -48,23 +52,17 @@ static void on_write(ev_tcp_handle *client) {
 }
 
 static void on_data(ev_tcp_handle *client) {
-    printf("Received %li bytes\n", client->buffer.size);
-    if (strncmp(client->buffer.buf, "quit", 4) == 0)
-        (void) ev_tcp_enqueue_close(client);
-    else
-        (void) ev_tcp_enqueue_write(client);
+    struct tts_packet packet;
+    unpack_tts_packet((uint8_t *) client->buffer.buf, &packet);
+    tts_handle_packet(&packet, client);
 }
 
 static void on_connection(ev_tcp_handle *server) {
     int err = 0;
     ev_tcp_handle *client = malloc(sizeof(*client));
     if ((err = ev_tcp_server_accept(server, client, on_data, on_write)) < 0) {
-        if (err < 0) {
-            if (err == -1)
-                fprintf(stderr, "Error occured: %s\n", strerror(errno));
-            else
-                fprintf(stderr, "Error occured:%s\n", ev_tcp_err(err));
-        }
+            fprintf(stderr, "Error occured: %s\n",
+                    err == -1 ? strerror(errno) : ev_tcp_err(err));
         free(client);
     } else {
         ev_tcp_handle_set_on_close(client, on_close);

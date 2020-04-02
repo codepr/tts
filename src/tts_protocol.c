@@ -26,6 +26,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 #include "pack.h"
 #include "tts_protocol.h"
 
@@ -56,10 +57,13 @@
  */
 static void unpack_tts_create(uint8_t *buf, size_t len, struct tts_create *c) {
     int64_t val = 0;
-    unpack_integer(&buf, 'H', &val);
+    // zero'ing tts_create struct
+    memset(c, 0x00, sizeof(*c));
+    unpack_integer(&buf, 'B', &val);
     c->ts_name_len = val;
     c->ts_name = malloc(c->ts_name_len + 1);
     unpack_bytes(&buf, c->ts_name_len, c->ts_name);
+    len -= sizeof(uint8_t) + c->ts_name_len;
     for (int i = 0; len > 0; ++i) {
         /*
          * Probably not the best way to handle it but we have to make room for
@@ -93,7 +97,9 @@ static void unpack_tts_create(uint8_t *buf, size_t len, struct tts_create *c) {
 static void unpack_tts_delete(uint8_t *buf, size_t len, struct tts_delete *d) {
     (void) len;
     int64_t val = 0;
-    unpack_integer(&buf, 'H', &val);
+    // zero'ing tts_delete struct
+    memset(d, 0x00, sizeof(*d));
+    unpack_integer(&buf, 'B', &val);
     d->ts_name_len = val;
     d->ts_name = malloc(d->ts_name_len + 1);
     unpack_bytes(&buf, d->ts_name_len, d->ts_name);
@@ -137,13 +143,15 @@ static void unpack_tts_delete(uint8_t *buf, size_t len, struct tts_delete *d) {
 static void unpack_tts_addpoints(uint8_t *buf, size_t len,
                                  struct tts_addpoints *a) {
     int64_t val = 0;
-    unpack_integer(&buf, 'H', &val);
+    // zero'ing tts_addpoints struct
+    memset(a, 0x00, sizeof(*a));
+    unpack_integer(&buf, 'B', &val);
     a->ts_name_len = val;
     a->ts_name = malloc(a->ts_name_len + 1);
     unpack_bytes(&buf, a->ts_name_len, a->ts_name);
-    len -= sizeof(uint16_t) + a->ts_name_len;
+    len -= sizeof(uint8_t) + a->ts_name_len;
     for (int i = 0; len > 0; ++i) {
-        a->points = realloc(a->points, sizeof(*a->points));
+        a->points = realloc(a->points, (i + 1) * sizeof(*a->points));
         unpack_integer(&buf, 'H', &val);
         a->points[i].field_len = val;
         a->points[i].field = malloc(a->points[i].field_len + 1);
@@ -199,13 +207,15 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
  */
 static void unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
     int64_t val = 0;
+    // zero'ing tts_query struct
+    memset(q, 0x00, sizeof(*q));
     unpack_integer(&buf, 'B', &val);
     q->byte = val;
-    unpack_integer(&buf, 'H', &val);
+    unpack_integer(&buf, 'B', &val);
     q->ts_name_len = val;
     q->ts_name = malloc(q->ts_name_len + 1);
     unpack_bytes(&buf, q->ts_name_len, q->ts_name);
-    len -= sizeof(uint8_t) + sizeof(uint16_t) + q->ts_name_len;
+    len -= sizeof(uint8_t) * 2 + q->ts_name_len;
     unpack_integer(&buf, 'Q', (int64_t *) &q->mean_val);
     unpack_integer(&buf, 'Q', (int64_t *) &q->major_of);
     unpack_integer(&buf, 'Q', (int64_t *) &q->minor_of);
@@ -219,9 +229,10 @@ static void unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
 void unpack_tts_packet(uint8_t *buf, struct tts_packet *tts_p) {
     size_t len = 0;
     int64_t val = 0;
-    tts_p->header.byte = *buf;
+    tts_p->header.byte = *buf++;
     unpack_integer(&buf, 'I', &val);
     len = val;
+    printf("Packet len %lu\n", len);
     switch(tts_p->header.byte) {
         case TTS_CREATE:
             unpack_tts_create(buf, len, &tts_p->create);

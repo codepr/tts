@@ -159,9 +159,6 @@ int64_t unpacki64(uint8_t *buf) {
 void unpack_integer(uint8_t **buf, int8_t type, int64_t *val) {
     switch (type) {
         case 'b':
-            *val = **buf;
-            *buf += 1;
-            break;
         case 'B':
             *val = **buf;
             *buf += 1;
