@@ -34,5 +34,7 @@
 void pack_integer(uint8_t **, int8_t, int64_t);
 void unpack_integer(uint8_t **, int8_t, int64_t *);
 void unpack_bytes(uint8_t **, size_t, uint8_t *);
+uint64_t unpack(uint8_t *, char *, ...);
+uint64_t pack(uint8_t *, char *, ...);
 
 #endif

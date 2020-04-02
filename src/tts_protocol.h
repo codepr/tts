@@ -96,12 +96,15 @@ struct tts_addpoints {
                 uint8_t reserved : 6;
             } bits;
         } ts_flags;
-        uint16_t field_len;
-        uint8_t *field;
-        uint16_t value_len;
-        uint8_t *value;
         uint64_t ts_sec;
         uint64_t ts_nsec;
+        uint16_t values_len;
+        struct {
+            uint16_t field_len;
+            uint8_t *field;
+            uint16_t value_len;
+            uint8_t *value;
+        } *values;
     } *points;
 };
 

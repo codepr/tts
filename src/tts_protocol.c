@@ -155,20 +155,6 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
         unpack_integer(&buf, 'B', &val);
         printf("tts_addpoints.points[%i].ts_flags.byte %li\n", i, val);
         a->points[i].ts_flags.byte = val;
-        unpack_integer(&buf, 'H', &val);
-        printf("tts_addpoints.points[%i].field_len %li\n", i, val);
-        a->points[i].field_len = val;
-        a->points[i].field = malloc(a->points[i].field_len + 1);
-        unpack_bytes(&buf, a->points[i].field_len, a->points[i].field);
-        unpack_integer(&buf, 'H', &val);
-        printf("tts_addpoints.points[%i].value_len %li\n", i, val);
-        a->points[i].value_len = val;
-        a->points[i].value = malloc(a->points[i].value_len + 1);
-        unpack_bytes(&buf, a->points[i].value_len, a->points[i].value);
-        // Update the length remaining after the unpack of the field + value
-        // bytes
-        len -= sizeof(uint8_t) + sizeof(uint16_t) * 2 +
-            a->points[i].field_len + a->points[i].value_len;
         // Unpack the seconds and nanoseconds component of the timestamp if
         // present
         if (a->points[i].ts_flags.bits.ts_sec_set == 1) {
@@ -180,6 +166,30 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
             unpack_integer(&buf, 'Q', &val);
             a->points[i].ts_nsec = val;
             len -= sizeof(uint64_t);
+        }
+        unpack_integer(&buf, 'H', &val);
+        a->points[i].values_len = val;
+        len -= sizeof(uint16_t);
+        for (int j = 0; j < a->points[i].values_len; ++j) {
+            a->points[i].values = realloc(a->points[i].values,
+                                          (j + 1) * sizeof(*a->points[i].values));
+            unpack_integer(&buf, 'H', &val);
+            printf("tts_addpoints.points[%i].field_len %li\n", i, val);
+            a->points[i].values[j].field_len = val;
+            a->points[i].values[j].field = malloc(val + 1);
+            unpack_bytes(&buf, a->points[i].values[j].field_len,
+                         a->points[i].values[j].field);
+            unpack_integer(&buf, 'H', &val);
+            printf("tts_addpoints.points[%i].value_len %li\n", i, val);
+            a->points[i].values[j].value_len = val;
+            a->points[i].values[j].value = malloc(val + 1);
+            unpack_bytes(&buf, a->points[i].values[j].value_len,
+                         a->points[i].values[j].value);
+            // Update the length remaining after the unpack of the field + value
+            // bytes
+            len -= sizeof(uint8_t) + sizeof(uint16_t) * 2 +
+                a->points[i].values[j].field_len +
+                a->points[i].values[j].value_len;
         }
         ++a->points_len;
     }
@@ -283,8 +293,9 @@ void tts_packet_destroy(struct tts_packet *packet) {
         case TTS_ADDPOINTS:
             free(packet->addpoints.ts_name);
             for (int i = 0; i < packet->addpoints.points_len; ++i) {
-                free(packet->addpoints.points[i].field);
-                free(packet->addpoints.points[i].value);
+                free(packet->addpoints.points[i].values);
+                //free(packet->addpoints.points[i].field);
+                //free(packet->addpoints.points[i].value);
             }
             free(packet->addpoints.points);
             break;

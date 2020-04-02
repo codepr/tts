@@ -31,39 +31,39 @@
 #include "tts_server.h"
 
 int main(void) {
-    struct tts_timeseries ts;
-    TTS_VECTOR_INIT(ts.timestamps, 4, sizeof(struct timespec));
-    TTS_VECTOR_INIT(ts.columns, 4, sizeof(TTS_VECTOR(struct tts_record)));
-    for (int i = 0; i < 4; ++i)
-        TTS_VECTOR_NEW(TTS_VECTOR_AT(ts.columns, i), sizeof(struct tts_record));
-    struct timespec specs[4] = {0};
-    clock_gettime(CLOCK_REALTIME, &specs[0]);
-    usleep(5000);
-    struct timespec target;
-    clock_gettime(CLOCK_REALTIME, &target);
-    clock_gettime(CLOCK_REALTIME, &specs[1]);
-    clock_gettime(CLOCK_REALTIME, &specs[2]);
-    usleep(3500);
-    clock_gettime(CLOCK_REALTIME, &specs[3]);
-    for (int i = 0; i < 4; ++i)
-        TTS_VECTOR_APPEND(ts.timestamps, specs[i]);
-    printf("size: %lu\n", TTS_VECTOR_SIZE(ts.timestamps));
-    int n;
-    TTS_VECTOR_BINSEARCH(ts.timestamps, &target, timespec_compare, &n);
-    printf("target %lu %lu\n", target.tv_sec, target.tv_nsec);
-    printf("n %i\n", n);
-    struct timespec tspec;
-    if (n != -1) {
-        tspec = TTS_VECTOR_AT(ts.timestamps, n);
-        printf("%i -> %lu %lu\n", n, tspec.tv_sec, tspec.tv_nsec);
-    }
-    for (int i = 0; i < 4; ++i) {
-        tspec = TTS_VECTOR_AT(ts.timestamps, i);
-        printf("%i -> %lu %lu\n", i, tspec.tv_sec, tspec.tv_nsec);
-        TTS_VECTOR_DESTROY(TTS_VECTOR_AT(ts.columns, i));
-    }
-    TTS_VECTOR_DESTROY(ts.columns);
-    TTS_VECTOR_DESTROY(ts.timestamps);
+    //struct tts_timeseries ts;
+    //TTS_VECTOR_INIT(ts.timestamps, 4, sizeof(struct timespec));
+    //TTS_VECTOR_INIT(ts.columns, 4, sizeof(TTS_VECTOR(struct tts_record)));
+    //for (int i = 0; i < 4; ++i)
+    //    TTS_VECTOR_NEW(TTS_VECTOR_AT(ts.columns, i), sizeof(struct tts_record));
+    //struct timespec specs[4] = {0};
+    //clock_gettime(CLOCK_REALTIME, &specs[0]);
+    //usleep(5000);
+    //struct timespec target;
+    //clock_gettime(CLOCK_REALTIME, &target);
+    //clock_gettime(CLOCK_REALTIME, &specs[1]);
+    //clock_gettime(CLOCK_REALTIME, &specs[2]);
+    //usleep(3500);
+    //clock_gettime(CLOCK_REALTIME, &specs[3]);
+    //for (int i = 0; i < 4; ++i)
+    //    TTS_VECTOR_APPEND(ts.timestamps, specs[i]);
+    //printf("size: %lu\n", TTS_VECTOR_SIZE(ts.timestamps));
+    //int n;
+    //TTS_VECTOR_BINSEARCH(ts.timestamps, &target, timespec_compare, &n);
+    //printf("target %lu %lu\n", target.tv_sec, target.tv_nsec);
+    //printf("n %i\n", n);
+    //struct timespec tspec;
+    //if (n != -1) {
+    //    tspec = TTS_VECTOR_AT(ts.timestamps, n);
+    //    printf("%i -> %lu %lu\n", n, tspec.tv_sec, tspec.tv_nsec);
+    //}
+    //for (int i = 0; i < 4; ++i) {
+    //    tspec = TTS_VECTOR_AT(ts.timestamps, i);
+    //    printf("%i -> %lu %lu\n", i, tspec.tv_sec, tspec.tv_nsec);
+    //    TTS_VECTOR_DESTROY(TTS_VECTOR_AT(ts.columns, i));
+    //}
+    //TTS_VECTOR_DESTROY(ts.columns);
+    //TTS_VECTOR_DESTROY(ts.timestamps);
 
     tts_start_server("127.0.0.1", 6767);
     return 0;

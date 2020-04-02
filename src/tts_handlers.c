@@ -39,7 +39,9 @@ int tts_handle_tts_create(struct tts_payload *payload) {
         printf("%s ", packet->create.fields[i].field);
     printf("\n");
     struct tts_timeseries *ts = malloc(sizeof(*ts));
-    TTS_TIMESERIES_INIT(ts, packet->create.ts_name);
+    TTS_TIMESERIES_INIT(ts, packet->create.ts_name, packet->create.fields_len);
+    for (int i = 0; i < packet->create.fields_len; i++)
+        TTS_VECTOR_APPEND(ts->fields, (char *) packet->create.fields[i].field);
     // add to db hashmap
     HASH_ADD_STR(payload->tts_db->timeseries, name, ts);
     handle->buffer.size = pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
@@ -60,11 +62,31 @@ int tts_handle_tts_addpoints(struct tts_payload *payload) {
     printf("Time series %s\n", packet->addpoints.ts_name);
     printf("Points:\n");
     for (int i = 0; i < packet->addpoints.points_len; i++)
-        printf("%s: %s %lu %lu\n", packet->addpoints.points[i].field,
-               packet->addpoints.points[i].value,
+        for (int j = 0; j < packet->addpoints.points[i].values_len; j++)
+        printf("%s: %s %lu %lu\n", packet->addpoints.points[i].values[j].field,
+               packet->addpoints.points[i].values[j].value,
                packet->addpoints.points[i].ts_sec,
                packet->addpoints.points[i].ts_nsec);
-    handle->buffer.size = pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
+    struct tts_timeseries *ts = NULL;
+    char *key = (char *) packet->addpoints.ts_name;
+    HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
+    if (!ts) {
+        handle->buffer.size =
+            pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_NOK);
+    } else {
+        for (int i = 0; i < packet->addpoints.points_len; i++) {
+            struct timespec timestamp = {
+                .tv_sec = packet->addpoints.points[i].ts_sec,
+                .tv_nsec = packet->addpoints.points[i].ts_nsec
+            };
+            TTS_VECTOR_APPEND(ts->timestamps, timestamp);
+            struct tts_record *records =
+                malloc(ts->fields_nr * sizeof(struct tts_record));
+            TTS_VECTOR_APPEND(ts->columns, records);
+        }
+        handle->buffer.size =
+            pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
+    }
     return TTS_OK;
 }
 

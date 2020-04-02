@@ -57,10 +57,11 @@ struct tts_record {
  * it refers to, if present.
  */
 struct tts_timeseries {
+    size_t fields_nr;
     char name[TTS_TS_NAME_MAX_LENGTH];
     TTS_VECTOR(struct timespec) timestamps;
     TTS_VECTOR(char *) fields;
-    TTS_VECTOR(TTS_VECTOR(struct record)) columns;
+    TTS_VECTOR(struct tts_record *) columns;
     UT_hash_handle hh;
 };
 
@@ -95,12 +96,12 @@ static inline int timespec_compare(const struct timespec *t1,
     return -1;
 }
 
-#define TTS_TIMESERIES_INIT(ts, ts_name) do {                                       \
-    snprintf((ts)->name, TTS_TS_NAME_MAX_LENGTH, "%s", (ts_name));                  \
-    TTS_VECTOR_NEW((ts)->timestamps, sizeof(struct timespec));                      \
-    TTS_VECTOR_NEW((ts)->columns, sizeof(TTS_VECTOR(struct tts_record)));           \
-    for (size_t i = 0; i < TTS_VECTOR_CAPACITY(ts->columns); ++i)                   \
-        TTS_VECTOR_NEW(TTS_VECTOR_AT((ts)->columns, i), sizeof(struct tts_record)); \
+#define TTS_TIMESERIES_INIT(ts, ts_name, nr) do {                           \
+    (ts)->fields_nr = (nr);                                                 \
+    snprintf((ts)->name, TTS_TS_NAME_MAX_LENGTH, "%s", (ts_name));          \
+    TTS_VECTOR_NEW((ts)->fields, sizeof(char *));                           \
+    TTS_VECTOR_NEW((ts)->timestamps, sizeof(struct timespec));              \
+    TTS_VECTOR_NEW((ts)->columns, sizeof(TTS_VECTOR(struct tts_record)));   \
 } while (0)
 
 #endif
