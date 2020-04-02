@@ -54,7 +54,10 @@ static void on_write(ev_tcp_handle *client) {
 static void on_data(ev_tcp_handle *client) {
     struct tts_packet packet;
     unpack_tts_packet((uint8_t *) client->buffer.buf, &packet);
-    tts_handle_packet(&packet, client);
+    int err = tts_handle_packet(&packet, client);
+    if (err == TTS_OK)
+        ev_tcp_enqueue_write(client);
+    tts_packet_destroy(&packet);
 }
 
 static void on_connection(ev_tcp_handle *server) {

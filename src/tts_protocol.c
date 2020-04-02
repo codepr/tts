@@ -152,6 +152,8 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
     len -= sizeof(uint8_t) + a->ts_name_len;
     for (int i = 0; len > 0; ++i) {
         a->points = realloc(a->points, (i + 1) * sizeof(*a->points));
+        unpack_integer(&buf, 'B', &val);
+        a->points[i].ts_flags.byte = val;
         unpack_integer(&buf, 'H', &val);
         a->points[i].field_len = val;
         a->points[i].field = malloc(a->points[i].field_len + 1);
@@ -162,14 +164,20 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
         unpack_bytes(&buf, a->points[i].value_len, a->points[i].value);
         // Update the length remaining after the unpack of the field + value
         // bytes
-        len -= sizeof(uint16_t) * 2 +
+        len -= sizeof(uint8_t) + sizeof(uint16_t) * 2 +
             a->points[i].field_len + a->points[i].value_len;
-        // Unpack the seconds and nanoseconds component of the timestamp
-        unpack_integer(&buf, 'Q', &val);
-        a->points[i].ts_sec = val;
-        unpack_integer(&buf, 'Q', &val);
-        a->points[i].ts_nsec = val;
-        len -= sizeof(uint64_t) * 2;
+        // Unpack the seconds and nanoseconds component of the timestamp if
+        // present
+        if (a->points[i].ts_flags.bits.ts_sec_set == 1) {
+            unpack_integer(&buf, 'Q', &val);
+            a->points[i].ts_sec = val;
+            len -= sizeof(uint64_t);
+        }
+        if (a->points[i].ts_flags.bits.ts_nsec_set == 1) {
+            unpack_integer(&buf, 'Q', &val);
+            a->points[i].ts_nsec = val;
+            len -= sizeof(uint64_t);
+        }
         ++a->points_len;
     }
 }
@@ -245,6 +253,40 @@ void unpack_tts_packet(uint8_t *buf, struct tts_packet *tts_p) {
             break;
         case TTS_QUERY:
             unpack_tts_query(buf, len, &tts_p->query);
+            break;
+    }
+}
+
+/*
+ * Simple helper to set a bytes buffer to an ACK response with a defined RC
+ */
+uint64_t pack_tts_ack(uint8_t *buf, int rc) {
+    pack_integer(&buf, 'B', TTS_ACK);
+    pack_integer(&buf, 'B', rc);
+    return 2;
+}
+
+void tts_packet_destroy(struct tts_packet *packet) {
+    switch (packet->header.byte) {
+        case TTS_CREATE:
+            free(packet->create.ts_name);
+            for (int i = 0; i < packet->create.fields_len; ++i)
+                free(packet->create.fields[i].field);
+            free(packet->create.fields);
+            break;
+        case TTS_DELETE:
+            free(packet->drop.ts_name);
+            break;
+        case TTS_ADDPOINTS:
+            free(packet->addpoints.ts_name);
+            for (int i = 0; i < packet->addpoints.points_len; ++i) {
+                free(packet->addpoints.points[i].field);
+                free(packet->addpoints.points[i].value);
+            }
+            free(packet->addpoints.points);
+            break;
+        case TTS_QUERY:
+            free(packet->query.ts_name);
             break;
     }
 }

@@ -37,13 +37,14 @@ int tts_handle_tts_create(struct tts_packet *packet, ev_tcp_handle *handle) {
     for (int i = 0; i < packet->create.fields_len; i++)
         printf("%s ", packet->create.fields[i].field);
     printf("\n");
-    return 0;
+    handle->buffer.size = pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
+    return TTS_OK;
 }
 
 int tts_handle_tts_delete(struct tts_packet *packet, ev_tcp_handle *handle) {
     (void) handle;
     printf("Time series %s\n", packet->drop.ts_name);
-    return 0;
+    return TTS_OK;
 }
 
 int tts_handle_tts_addpoints(struct tts_packet *packet, ev_tcp_handle *handle) {
@@ -55,29 +56,30 @@ int tts_handle_tts_addpoints(struct tts_packet *packet, ev_tcp_handle *handle) {
                packet->addpoints.points[i].value,
                packet->addpoints.points[i].ts_sec,
                packet->addpoints.points[i].ts_nsec);
-    return 0;
+    return TTS_OK;
 }
 
 int tts_handle_tts_query(struct tts_packet *packet, ev_tcp_handle *handle) {
     (void) handle;
     printf("Time series %s\n", packet->query.ts_name);
-    return 0;
+    return TTS_OK;
 }
 
 int tts_handle_packet(struct tts_packet *packet, ev_tcp_handle *handle) {
+    int rc = 0;
     switch (packet->header.byte) {
         case TTS_CREATE:
-            tts_handle_tts_create(packet, handle);
+            rc = tts_handle_tts_create(packet, handle);
             break;
         case TTS_DELETE:
-            tts_handle_tts_delete(packet, handle);
+            rc = tts_handle_tts_delete(packet, handle);
             break;
         case TTS_ADDPOINTS:
-            tts_handle_tts_addpoints(packet, handle);
+            rc = tts_handle_tts_addpoints(packet, handle);
             break;
         case TTS_QUERY:
-            tts_handle_tts_query(packet, handle);
+            rc = tts_handle_tts_query(packet, handle);
             break;
     }
-    return 0;
+    return rc;
 }

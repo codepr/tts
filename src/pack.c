@@ -145,6 +145,43 @@ int64_t unpacki64(uint8_t *buf) {
 }
 
 /*
+ * Pack integer numbers based on the type on a pointer accepting the result
+ * to maintain the same API's definition with `unpack_bytes`, type argument
+ * follows the table:
+ *
+ *   bits | signed   unsigned
+ *   -----+-------------------
+ *      8 |    b        B
+ *     16 |    h        H
+ *     32 |    i        I
+ *     64 |    q        Q
+ */
+void pack_integer(uint8_t **buf, int8_t type, int64_t val) {
+    switch (type) {
+        case 'b':
+        case 'B':
+            **buf = val;
+            *buf += 1;
+            break;
+        case 'h':
+        case 'H':
+            packi16(*buf, val);
+            *buf += 2;
+            break;
+        case 'i':
+        case 'I':
+            packi32(*buf, val);
+            *buf += 4;
+            break;
+        case 'q':
+        case 'Q':
+            packi64(*buf, val);
+            *buf += 8;
+            break;
+    }
+}
+
+/*
  * Unpack integer numbers based on the type on a pointer accepting the result
  * to maintain the same API's definition with `unpack_bytes`, type argument
  * follows the table:

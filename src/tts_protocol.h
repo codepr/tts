@@ -32,8 +32,8 @@
 #include <stdint.h>
 
 // Return codes for ACK response
-#define OK  0
-#define NOK 1
+#define TTS_OK  0
+#define TTS_NOK 1
 
 // Base command bytes, draft
 #define TTS_CREATE         0x00
@@ -88,6 +88,14 @@ struct tts_addpoints {
     TS_NAME_FIELD
     uint16_t points_len;
     struct {
+        union {
+            uint8_t byte;
+            struct {
+                uint8_t ts_sec_set : 1;
+                uint8_t ts_nsec_set : 1;
+                uint8_t reserved : 6;
+            } bits;
+        } ts_flags;
         uint16_t field_len;
         uint8_t *field;
         uint16_t value_len;
@@ -171,5 +179,7 @@ struct tts_packet {
 };
 
 void unpack_tts_packet(uint8_t *, struct tts_packet *);
+uint64_t pack_tts_ack(uint8_t *, int);
+void tts_packet_destroy(struct tts_packet *);
 
 #endif
