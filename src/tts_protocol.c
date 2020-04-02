@@ -153,12 +153,15 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
     for (int i = 0; len > 0; ++i) {
         a->points = realloc(a->points, (i + 1) * sizeof(*a->points));
         unpack_integer(&buf, 'B', &val);
+        printf("tts_addpoints.points[%i].ts_flags.byte %li\n", i, val);
         a->points[i].ts_flags.byte = val;
         unpack_integer(&buf, 'H', &val);
+        printf("tts_addpoints.points[%i].field_len %li\n", i, val);
         a->points[i].field_len = val;
         a->points[i].field = malloc(a->points[i].field_len + 1);
         unpack_bytes(&buf, a->points[i].field_len, a->points[i].field);
         unpack_integer(&buf, 'H', &val);
+        printf("tts_addpoints.points[%i].value_len %li\n", i, val);
         a->points[i].value_len = val;
         a->points[i].value = malloc(a->points[i].value_len + 1);
         unpack_bytes(&buf, a->points[i].value_len, a->points[i].value);

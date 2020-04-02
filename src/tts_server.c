@@ -37,6 +37,8 @@
 
 #define BACKLOG 128
 
+struct tts_server tts_server;
+
 static void on_close(ev_tcp_handle *client, int err) {
     (void) client;
     if (err == EV_TCP_SUCCESS)
@@ -52,12 +54,15 @@ static void on_write(ev_tcp_handle *client) {
 }
 
 static void on_data(ev_tcp_handle *client) {
-    struct tts_packet packet;
-    unpack_tts_packet((uint8_t *) client->buffer.buf, &packet);
-    int err = tts_handle_packet(&packet, client);
+    struct tts_payload payload = {
+        .handle = client,
+        .tts_db = tts_server.db
+    };
+    unpack_tts_packet((uint8_t *) client->buffer.buf, &payload.packet);
+    int err = tts_handle_packet(&payload);
     if (err == TTS_OK)
         ev_tcp_enqueue_write(client);
-    tts_packet_destroy(&packet);
+    tts_packet_destroy(&payload.packet);
 }
 
 static void on_connection(ev_tcp_handle *server) {
@@ -73,6 +78,8 @@ static void on_connection(ev_tcp_handle *server) {
 }
 
 int tts_start_server(const char *host, int port) {
+    tts_server.db = malloc(sizeof(struct tts_database));
+    tts_server.db->timeseries = NULL;
     ev_context *ctx = ev_get_ev_context();
     ev_tcp_server server;
     ev_tcp_server_init(&server, ctx, BACKLOG);
@@ -93,6 +100,8 @@ int tts_start_server(const char *host, int port) {
     // This could be registered to a SIGINT|SIGTERM signal notification
     // to stop the server with Ctrl+C
     ev_tcp_server_stop(&server);
+
+    free(tts_server.db);
 
     return 0;
 }

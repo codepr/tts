@@ -28,6 +28,17 @@
 #ifndef TTS_SERVER_H
 #define TTS_SERVER_H
 
+struct tts_database;
+
+/*
+ * Global server instance, still deciding if maintain it global
+ */
+struct tts_server {
+    struct tts_database *db;
+};
+
+extern struct tts_server tts_server;
+
 int tts_start_server(const char *, int);
 
 #endif

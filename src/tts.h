@@ -29,6 +29,7 @@
 #define TTS_H
 
 #include <time.h>
+#include "uthash.h"
 #include "tts_vector.h"
 
 #define TTS_TS_FIELDS_MAX_NUMBER 1 << 8
@@ -55,11 +56,19 @@ struct tts_record {
  * columns array) will be paired with the fields array to retrieve what field
  * it refers to, if present.
  */
-struct tts_time_series {
+struct tts_timeseries {
     char name[TTS_TS_NAME_MAX_LENGTH];
     TTS_VECTOR(struct timespec) timestamps;
     TTS_VECTOR(char *) fields;
     TTS_VECTOR(TTS_VECTOR(struct record)) columns;
+    UT_hash_handle hh;
+};
+
+/*
+ * Just a general store for all the timeseries, KISS as possible
+ */
+struct tts_database {
+    struct tts_timeseries *timeseries;
 };
 
 /*
@@ -85,5 +94,13 @@ static inline int timespec_compare(const struct timespec *t1,
     }
     return -1;
 }
+
+#define TTS_TIMESERIES_INIT(ts, ts_name) do {                                       \
+    snprintf((ts)->name, TTS_TS_NAME_MAX_LENGTH, "%s", (ts_name));                  \
+    TTS_VECTOR_NEW((ts)->timestamps, sizeof(struct timespec));                      \
+    TTS_VECTOR_NEW((ts)->columns, sizeof(TTS_VECTOR(struct tts_record)));           \
+    for (size_t i = 0; i < TTS_VECTOR_CAPACITY(ts->columns); ++i)                   \
+        TTS_VECTOR_NEW(TTS_VECTOR_AT((ts)->columns, i), sizeof(struct tts_record)); \
+} while (0)
 
 #endif

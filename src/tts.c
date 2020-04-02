@@ -31,7 +31,7 @@
 #include "tts_server.h"
 
 int main(void) {
-    struct tts_time_series ts;
+    struct tts_timeseries ts;
     TTS_VECTOR_INIT(ts.timestamps, 4, sizeof(struct timespec));
     TTS_VECTOR_INIT(ts.columns, 4, sizeof(TTS_VECTOR(struct tts_record)));
     for (int i = 0; i < 4; ++i)
