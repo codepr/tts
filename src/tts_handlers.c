@@ -52,7 +52,17 @@ int tts_handle_tts_delete(struct tts_payload *payload) {
     ev_tcp_handle *handle = payload->handle;
     struct tts_packet *packet = &payload->packet;
     printf("Time series %s\n", packet->drop.ts_name);
-    handle->buffer.size = pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
+    struct tts_timeseries *ts = NULL;
+    char *key = (char *) packet->drop.ts_name;
+    HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
+    if (!ts) {
+        handle->buffer.size =
+            pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_NOK);
+    } else {
+        HASH_DEL(payload->tts_db->timeseries, ts);
+        handle->buffer.size =
+            pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
+    }
     return TTS_OK;
 }
 
