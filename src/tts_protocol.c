@@ -170,9 +170,9 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
         unpack_integer(&buf, 'H', &val);
         a->points[i].values_len = val;
         len -= sizeof(uint16_t);
+        a->points[i].values =
+            calloc(a->points[i].values_len, sizeof(*a->points[i].values));
         for (int j = 0; j < a->points[i].values_len; ++j) {
-            a->points[i].values = realloc(a->points[i].values,
-                                          (j + 1) * sizeof(*a->points[i].values));
             unpack_integer(&buf, 'H', &val);
             printf("tts_addpoints.points[%i].field_len %li\n", i, val);
             a->points[i].values[j].field_len = val;
@@ -232,15 +232,25 @@ static void unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
     memset(q, 0x00, sizeof(*q));
     unpack_integer(&buf, 'B', &val);
     q->byte = val;
+    printf("q->byte %u\n", q->byte);
     unpack_integer(&buf, 'B', &val);
     q->ts_name_len = val;
+    printf("q->ts_name_len %u\n", q->ts_name_len);
     q->ts_name = malloc(q->ts_name_len + 1);
     unpack_bytes(&buf, q->ts_name_len, q->ts_name);
     len -= sizeof(uint8_t) * 2 + q->ts_name_len;
-    unpack_integer(&buf, 'Q', (int64_t *) &q->mean_val);
-    unpack_integer(&buf, 'Q', (int64_t *) &q->major_of);
-    unpack_integer(&buf, 'Q', (int64_t *) &q->minor_of);
-    len -= sizeof(uint64_t) * 3;
+    if (q->bits.mean == 1) {
+        unpack_integer(&buf, 'Q', (int64_t *) &q->mean_val);
+        len -= sizeof(uint64_t);
+    }
+    if (q->bits.major_of == 1) {
+        unpack_integer(&buf, 'Q', (int64_t *) &q->major_of);
+        len -= sizeof(uint64_t);
+    }
+    if (q->bits.minor_of == 1) {
+        unpack_integer(&buf, 'Q', (int64_t *) &q->minor_of);
+        len -= sizeof(uint64_t);
+    }
 }
 
 /*
@@ -277,6 +287,29 @@ uint64_t pack_tts_ack(uint8_t *buf, int rc) {
     pack_integer(&buf, 'B', TTS_ACK);
     pack_integer(&buf, 'B', rc);
     return 2;
+}
+
+uint64_t pack_tts_query_ack(uint8_t *buf, const struct tts_query_ack *qa) {
+    size_t len = 0LL;
+    size_t packed = 0LL;
+    uint8_t tmp[2048], *ptr = &tmp[0];
+    for (uint64_t i = 0; i < qa->len; ++i) {
+        printf("Packing point\n");
+        packed = pack(ptr, "BHsHsQQ",
+                      qa->results[i].rc,
+                      qa->results[i].field_len,
+                      qa->results[i].field,
+                      qa->results[i].value_len,
+                      qa->results[i].value,
+                      qa->results[i].ts_sec,
+                      qa->results[i].ts_nsec);
+        len += packed;
+        ptr += packed;
+        packed = 0;
+    }
+    len += pack(buf, "BI", TTS_QUERY_RESPONSE, (uint32_t) len);
+    memcpy(buf + 5, tmp, len - 5);
+    return len;
 }
 
 void tts_packet_destroy(struct tts_packet *packet) {

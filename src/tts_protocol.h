@@ -154,6 +154,7 @@ struct tts_ack {
  * return codes and optional values as part of the result of the query issued
  */
 struct tts_query_ack {
+    uint64_t len;
     struct {
         uint8_t rc;
         uint16_t field_len;
@@ -184,5 +185,6 @@ struct tts_packet {
 void unpack_tts_packet(uint8_t *, struct tts_packet *);
 uint64_t pack_tts_ack(uint8_t *, int);
 void tts_packet_destroy(struct tts_packet *);
+uint64_t pack_tts_query_ack(uint8_t *, const struct tts_query_ack *);
 
 #endif

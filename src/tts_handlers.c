@@ -82,6 +82,11 @@ int tts_handle_tts_addpoints(struct tts_payload *payload) {
             TTS_VECTOR_APPEND(ts->timestamps, timestamp);
             struct tts_record *records =
                 malloc(ts->fields_nr * sizeof(struct tts_record));
+            for (int j = 0; j < packet->addpoints.points[i].values_len; ++j) {
+                records[j].field =
+                    (char *) packet->addpoints.points[i].values[j].field;
+                records[j].value = packet->addpoints.points[i].values[j].value;
+            }
             TTS_VECTOR_APPEND(ts->columns, records);
         }
         handle->buffer.size =
@@ -93,9 +98,36 @@ int tts_handle_tts_addpoints(struct tts_payload *payload) {
 int tts_handle_tts_query(struct tts_payload *payload) {
     ev_tcp_handle *handle = payload->handle;
     struct tts_packet *packet = &payload->packet;
-    (void) handle;
     printf("Time series %s\n", packet->query.ts_name);
-    handle->buffer.size = pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
+    struct tts_timeseries *ts = NULL;
+    char *key = (char *) packet->query.ts_name;
+    HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
+    if (!ts) {
+        handle->buffer.size =
+            pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_NOK);
+    } else {
+        if (packet->query.byte == 0x00) {
+            size_t colsize = TTS_VECTOR_SIZE(ts->columns);
+            struct tts_query_ack qa;
+            qa.results = calloc(colsize, sizeof(*qa.results));
+            struct tts_record *record;
+            struct timespec *t;
+            qa.len = colsize;
+            for (size_t i = 0; i < colsize; ++i) {
+                t = &TTS_VECTOR_AT(ts->timestamps, i);
+                record = TTS_VECTOR_AT(ts->columns, i);
+                qa.results[i].rc = TTS_OK;
+                qa.results[i].field_len = strlen(record->field);
+                qa.results[i].field = (uint8_t *) record->field;
+                qa.results[i].value_len = strlen(record->value);
+                qa.results[i].value = record->value;
+                qa.results[i].ts_sec = t->tv_sec;
+                qa.results[i].ts_nsec = t->tv_nsec;
+            }
+            handle->buffer.size =
+                pack_tts_query_ack((uint8_t *) handle->buffer.buf, &qa);
+        }
+    }
     return TTS_OK;
 }
 

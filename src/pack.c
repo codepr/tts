@@ -449,6 +449,7 @@ uint64_t pack(uint8_t *buf, char *format, ...) {
             case 's': // string
                 s = va_arg(ap, char *);
                 len = strlen(s);
+                size += len;
                 memcpy(buf, s, len);
                 buf += len;
                 break;

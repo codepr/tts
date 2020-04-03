@@ -41,6 +41,7 @@
  * column
  */
 struct tts_record {
+    char *field;
     void *value;
 };
 
