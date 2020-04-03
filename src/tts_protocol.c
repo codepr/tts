@@ -292,9 +292,8 @@ uint64_t pack_tts_ack(uint8_t *buf, int rc) {
 uint64_t pack_tts_query_ack(uint8_t *buf, const struct tts_query_ack *qa) {
     size_t len = 0LL;
     size_t packed = 0LL;
-    uint8_t tmp[2048], *ptr = &tmp[0];
+    uint8_t *ptr = buf + sizeof(uint8_t) + sizeof(uint32_t);
     for (uint64_t i = 0; i < qa->len; ++i) {
-        printf("Packing point\n");
         packed = pack(ptr, "BHsHsQQ",
                       qa->results[i].rc,
                       qa->results[i].field_len,
@@ -308,7 +307,6 @@ uint64_t pack_tts_query_ack(uint8_t *buf, const struct tts_query_ack *qa) {
         packed = 0;
     }
     len += pack(buf, "BI", TTS_QUERY_RESPONSE, (uint32_t) len);
-    memcpy(buf + 5, tmp, len - 5);
     return len;
 }
 
