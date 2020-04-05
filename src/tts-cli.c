@@ -25,90 +25,37 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netdb.h>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include "ttsclient.h"
 
 #define BUFSIZE     2048
-#define COMMANDS_NR 4
 
-typedef void (*tts_cmd_handler)(char *);
-
-static void tts_handle_create(char *);
-static void tts_handle_delete(char *);
-static void tts_handle_addpoints(char *);
-static void tts_handle_query(char *);
-//static void tts_handle_ack(char *);
-//static void tts_handle_query_response(char *);
-
-static const char *cmds[COMMANDS_NR] = {
-    "tts_create",
-    "tts_delete",
-    "tts_addpoints",
-    "tts_query"
-};
-
-static tts_cmd_handler handlers[4] = {
-    tts_handle_create,
-    tts_handle_delete,
-    tts_handle_addpoints,
-    tts_handle_query
-};
-
-static void tts_handle_create(char *line) {
-    (void) line;
-}
-
-static void tts_handle_delete(char *line) {
-    (void) line;
-}
-
-static void tts_handle_addpoints(char *line) {
-    (void) line;
-
-}
-
-static void tts_handle_query(char *line) {
-    (void) line;
-
-}
-
-//static void tts_handle_ack(char *line) {
-//    (void) line;
-//
-//}
-//
-//static void tts_handle_query_response(char *line) {
-//    (void) line;
-//
-//}
-
-static void parse_cmd(char *cmd) {
-    int cmd_id = -1, i;
-    for (i = 0; i < COMMANDS_NR && cmd_id == -1; ++i) {
-        if (strncasecmp(cmd, cmds[i], strlen(cmds[i])) == 0)
-            cmd_id = i;
-    }
-    if (cmd_id == -1)
-        printf("Unknown command\n");
-    else
-        handlers[i](cmd + strlen(cmds[i]));
-}
-
-static void prompt(void) {
-    printf("> ");
+static void prompt(tts_client *c) {
+    printf("%s:%i> ", c->host, c->port);
 }
 
 int main(int argc, char **argv) {
     (void) argc;
     (void) argv;
     size_t line_len = 0LL;
-    char *line = NULL;
+    char *line = NULL, res[2048];
+    tts_client c;
+    tts_client_init(&c, "127.0.0.1", 6767);
+    tts_client_connect(&c);
     while (1) {
-        prompt();
+        prompt(&c);
         getline(&line, &line_len, stdin);
-        parse_cmd(line);
+        tts_client_send_command(&c, line);
+        tts_client_recv_response(&c, res);
+        printf("%s\n", res);
     }
+    tts_client_destroy(&c);
     free(line);
     return 0;
 }

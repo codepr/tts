@@ -69,14 +69,6 @@ int tts_handle_tts_delete(struct tts_payload *payload) {
 int tts_handle_tts_addpoints(struct tts_payload *payload) {
     ev_tcp_handle *handle = payload->handle;
     struct tts_packet *packet = &payload->packet;
-    printf("Time series %s\n", packet->addpoints.ts_name);
-    printf("Points:\n");
-    for (int i = 0; i < packet->addpoints.points_len; i++)
-        for (int j = 0; j < packet->addpoints.points[i].values_len; j++)
-        printf("%s: %s %lu %lu\n", packet->addpoints.points[i].values[j].field,
-               packet->addpoints.points[i].values[j].value,
-               packet->addpoints.points[i].ts_sec,
-               packet->addpoints.points[i].ts_nsec);
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->addpoints.ts_name;
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
@@ -84,7 +76,13 @@ int tts_handle_tts_addpoints(struct tts_payload *payload) {
         handle->buffer.size =
             pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_NOK);
     } else {
+        struct timespec tv;
+        clock_gettime(CLOCK_REALTIME, &tv);
         for (int i = 0; i < packet->addpoints.points_len; i++) {
+            if (packet->addpoints.points[i].ts_flags.bits.ts_sec_set == 0)
+                packet->addpoints.points[i].ts_sec = tv.tv_sec;
+            if (packet->addpoints.points[i].ts_flags.bits.ts_nsec_set == 0)
+                packet->addpoints.points[i].ts_nsec = tv.tv_nsec;
             struct timespec timestamp = {
                 .tv_sec = packet->addpoints.points[i].ts_sec,
                 .tv_nsec = packet->addpoints.points[i].ts_nsec
@@ -102,6 +100,14 @@ int tts_handle_tts_addpoints(struct tts_payload *payload) {
         handle->buffer.size =
             pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
     }
+    printf("Time series %s\n", packet->addpoints.ts_name);
+    printf("Points:\n");
+    for (int i = 0; i < packet->addpoints.points_len; i++)
+        for (int j = 0; j < packet->addpoints.points[i].values_len; j++)
+        printf("%s: %s %lu %lu\n", packet->addpoints.points[i].values[j].field,
+               packet->addpoints.points[i].values[j].value,
+               packet->addpoints.points[i].ts_sec,
+               packet->addpoints.points[i].ts_nsec);
     return TTS_OK;
 }
 
@@ -117,7 +123,7 @@ int tts_handle_tts_query(struct tts_payload *payload) {
             pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_NOK);
     } else {
         if (packet->query.byte == 0x00) {
-            size_t colsize = TTS_VECTOR_SIZE(ts->columns);
+            size_t colsize = TTS_VECTOR_SIZE(ts->timestamps);
             struct tts_query_ack qa;
             qa.results = calloc(colsize, sizeof(*qa.results));
             struct tts_record *record;
@@ -127,12 +133,17 @@ int tts_handle_tts_query(struct tts_payload *payload) {
                 t = &TTS_VECTOR_AT(ts->timestamps, i);
                 record = TTS_VECTOR_AT(ts->columns, i);
                 qa.results[i].rc = TTS_OK;
-                qa.results[i].field_len = strlen(record->field);
-                qa.results[i].field = (uint8_t *) record->field;
-                qa.results[i].value_len = strlen(record->value);
-                qa.results[i].value = record->value;
                 qa.results[i].ts_sec = t->tv_sec;
                 qa.results[i].ts_nsec = t->tv_nsec;
+                qa.results[i].res_len = ts->fields_nr;
+                qa.results[i].points =
+                    calloc(ts->fields_nr, sizeof(*qa.results[i].points));
+                for (size_t j = 0; j < ts->fields_nr; ++j) {
+                    qa.results[i].points[j].field_len = strlen(record[j].field);
+                    qa.results[i].points[j].field = (uint8_t *) record[j].field;
+                    qa.results[i].points[j].value_len = strlen(record[j].value);
+                    qa.results[i].points[j].value = record[j].value;
+                }
             }
             handle->buffer.size =
                 pack_tts_query_ack((uint8_t *) handle->buffer.buf, &qa);
