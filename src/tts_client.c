@@ -44,8 +44,6 @@ static int tts_handle_new(char *, struct tts_packet *);
 static int tts_handle_del(char *, struct tts_packet *);
 static int tts_handle_add(char *, struct tts_packet *);
 static int tts_handle_query(char *, struct tts_packet *);
-//static void tts_handle_ack(char *);
-//static void tts_handle_query_response(char *);
 
 static const char *cmds[COMMANDS_NR] = {
     "new",
@@ -69,6 +67,15 @@ static inline void strip_spaces(char **str) {
 static inline void remove_newline(char *str) {
     char *ptr = strstr(str, "\n");
     *ptr = '\0';
+}
+
+static inline unsigned get_digits(unsigned long long n) {
+    unsigned count = 0;
+    do {
+        count++;
+        n /= 10;
+    } while (n != 0);
+    return count;
 }
 
 static int tts_handle_new(char *line, struct tts_packet *tts_p) {
@@ -156,7 +163,53 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
     tts_p->query.ts_name = malloc(tts_p->query.ts_name_len + 1);
     snprintf((char *) tts_p->query.ts_name,
              tts_p->query.ts_name_len + 1, "%s", token);
-    tts_p->query.byte = 0x00;
+    token = strtok(NULL, " ");
+    if (!token) {
+        tts_p->query.byte = 0x00;
+    } else  {
+        struct timespec ts;
+        if (strcmp(token, ">") == 0) {
+            tts_p->query.bits.major_of = 1;
+            token = strtok(line, " ");
+            tts_p->query.major_of = atoi(token);
+            if (get_digits(tts_p->query.major_of) == 10) {
+                clock_gettime(CLOCK_REALTIME, &ts);
+                tts_p->query.major_of *= 1e9;
+                tts_p->query.major_of += ts.tv_nsec;
+            }
+        } else if (strcmp(token, "<") == 0) {
+            tts_p->query.bits.minor_of = 1;
+            token = strtok(line, " ");
+            tts_p->query.minor_of = atoi(token);
+            if (get_digits(tts_p->query.minor_of) == 10) {
+                clock_gettime(CLOCK_REALTIME, &ts);
+                tts_p->query.minor_of *= 1e9;
+                tts_p->query.minor_of += ts.tv_nsec;
+            }
+        } else if (strcasecmp(token, "range") == 0) {
+            tts_p->query.bits.minor_of = 1;
+            tts_p->query.bits.major_of = 1;
+            token = strtok(line, " ");
+            tts_p->query.minor_of = atoi(token);
+            token = strtok(line, " ");
+            tts_p->query.major_of = atoi(token);
+            if (get_digits(tts_p->query.minor_of) == 10) {
+                clock_gettime(CLOCK_REALTIME, &ts);
+                tts_p->query.minor_of *= 1e9;
+                tts_p->query.minor_of += ts.tv_nsec;
+            }
+            if (get_digits(tts_p->query.major_of) == 10) {
+                clock_gettime(CLOCK_REALTIME, &ts);
+                tts_p->query.major_of *= 1e9;
+                tts_p->query.major_of += ts.tv_nsec;
+            }
+        } else if (strcasecmp(token, "first") == 0) {
+            printf("FIRST\n");
+            tts_p->query.bits.first = 1;
+        } else if (strcasecmp(token, "last") == 0) {
+            tts_p->query.bits.last = 1;
+        }
+    }
     return 0;
 }
 

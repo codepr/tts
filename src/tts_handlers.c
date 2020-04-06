@@ -76,10 +76,9 @@ int tts_handle_tts_addpoints(struct tts_payload *payload) {
                 packet->addpoints.points[i].ts_sec = tv.tv_sec;
             if (packet->addpoints.points[i].ts_flags.bits.ts_nsec_set == 0)
                 packet->addpoints.points[i].ts_nsec = tv.tv_nsec;
-            struct timespec timestamp = {
-                .tv_sec = packet->addpoints.points[i].ts_sec,
-                .tv_nsec = packet->addpoints.points[i].ts_nsec
-            };
+            unsigned long long timestamp =
+                packet->addpoints.points[i].ts_sec * 1e9 +
+                packet->addpoints.points[i].ts_nsec;
             TTS_VECTOR_APPEND(ts->timestamps, timestamp);
             struct tts_record *records =
                 malloc(ts->fields_nr * sizeof(struct tts_record));
@@ -111,14 +110,14 @@ int tts_handle_tts_query(struct tts_payload *payload) {
             struct tts_query_ack qa;
             qa.results = calloc(colsize, sizeof(*qa.results));
             struct tts_record *record;
-            struct timespec *t;
+            unsigned long long t;
             qa.len = colsize;
             for (size_t i = 0; i < colsize; ++i) {
-                t = &TTS_VECTOR_AT(ts->timestamps, i);
+                t = TTS_VECTOR_AT(ts->timestamps, i);
                 record = TTS_VECTOR_AT(ts->columns, i);
                 qa.results[i].rc = TTS_OK;
-                qa.results[i].ts_sec = t->tv_sec;
-                qa.results[i].ts_nsec = t->tv_nsec;
+                qa.results[i].ts_sec = t / (unsigned long long) 1e9;
+                qa.results[i].ts_nsec = t % (unsigned long long) 1e9;
                 qa.results[i].res_len = ts->fields_nr;
                 qa.results[i].points =
                     calloc(ts->fields_nr, sizeof(*qa.results[i].points));
@@ -131,7 +130,84 @@ int tts_handle_tts_query(struct tts_payload *payload) {
             }
             handle->buffer.size =
                 pack_tts_query_ack((uint8_t *) handle->buffer.buf, &qa);
+        } else {
+            size_t ts_size = TTS_VECTOR_SIZE(ts->timestamps);
+            unsigned long long major_of = TTS_VECTOR_AT(ts->timestamps, 0);
+            unsigned long long minor_of = TTS_VECTOR_AT(ts->timestamps, ts_size);
+            struct tts_query_ack qa;
+            if (packet->query.bits.first == 1) {
+                qa.results = calloc(1, sizeof(*qa.results));
+                struct tts_record *record;
+                unsigned long long t;
+                qa.len = 1;
+                t = TTS_VECTOR_AT(ts->timestamps, 0);
+                record = TTS_VECTOR_AT(ts->columns, 0);
+                qa.results[0].rc = TTS_OK;
+                qa.results[0].ts_sec = t / (unsigned long long) 1e9;
+                qa.results[0].ts_nsec = t % (unsigned long long) 1e9;
+                qa.results[0].res_len = ts->fields_nr;
+                qa.results[0].points =
+                    calloc(ts->fields_nr, sizeof(*qa.results[0].points));
+                for (size_t j = 0; j < ts->fields_nr; ++j) {
+                    qa.results[0].points[j].field_len = strlen(record[j].field);
+                    qa.results[0].points[j].field = (uint8_t *) record[j].field;
+                    qa.results[0].points[j].value_len = strlen(record[j].value);
+                    qa.results[0].points[j].value = record[j].value;
+                }
+            } else if (packet->query.bits.last == 1) {
+                qa.results = calloc(1, sizeof(*qa.results));
+                struct tts_record *record;
+                unsigned long long t;
+                size_t idx = TTS_VECTOR_SIZE(ts->timestamps) - 1;
+                qa.len = 1;
+                t = TTS_VECTOR_AT(ts->timestamps, idx);
+                record = TTS_VECTOR_AT(ts->columns, idx);
+                qa.results[0].rc = TTS_OK;
+                qa.results[0].ts_sec = t / (unsigned long long) 1e9;
+                qa.results[0].ts_nsec = t % (unsigned long long) 1e9;
+                qa.results[0].res_len = ts->fields_nr;
+                qa.results[0].points =
+                    calloc(ts->fields_nr, sizeof(*qa.results[0].points));
+                for (size_t j = 0; j < ts->fields_nr; ++j) {
+                    qa.results[0].points[j].field_len = strlen(record[j].field);
+                    qa.results[0].points[j].field = (uint8_t *) record[j].field;
+                    qa.results[0].points[j].value_len = strlen(record[j].value);
+                    qa.results[0].points[j].value = record[j].value;
+                }
+            } else {
+                if (packet->query.bits.major_of == 1)
+                    major_of = packet->query.major_of;
+                if (packet->query.bits.minor_of == 1)
+                    minor_of = packet->query.minor_of;
+                size_t hi_idx = 0ULL, lo_idx = 0ULL;
+                TTS_VECTOR_BINSEARCH(ts->timestamps, major_of, &hi_idx);
+                TTS_VECTOR_BINSEARCH(ts->timestamps, minor_of, &lo_idx);
+                unsigned long long range = hi_idx - lo_idx;
+                qa.results = calloc(range, sizeof(*qa.results));
+                struct tts_record *record;
+                unsigned long long t;
+                qa.len = range;
+                for (size_t i = lo_idx; i < hi_idx; ++i) {
+                    t = TTS_VECTOR_AT(ts->timestamps, i);
+                    record = TTS_VECTOR_AT(ts->columns, i);
+                    qa.results[i].rc = TTS_OK;
+                    qa.results[i].ts_sec = t / (unsigned long long) 1e9;
+                    qa.results[i].ts_nsec = t % (unsigned long long) 1e9;
+                    qa.results[i].res_len = ts->fields_nr;
+                    qa.results[i].points =
+                        calloc(ts->fields_nr, sizeof(*qa.results[i].points));
+                    for (size_t j = 0; j < ts->fields_nr; ++j) {
+                        qa.results[i].points[j].field_len = strlen(record[j].field);
+                        qa.results[i].points[j].field = (uint8_t *) record[j].field;
+                        qa.results[i].points[j].value_len = strlen(record[j].value);
+                        qa.results[i].points[j].value = record[j].value;
+                    }
+                }
+            }
+            handle->buffer.size =
+                pack_tts_query_ack((uint8_t *) handle->buffer.buf, &qa);
         }
+
     }
     return TTS_OK;
 }

@@ -60,7 +60,7 @@ struct tts_record {
 struct tts_timeseries {
     size_t fields_nr;
     char name[TTS_TS_NAME_MAX_LENGTH];
-    TTS_VECTOR(struct timespec) timestamps;
+    TTS_VECTOR(unsigned long long) timestamps;
     TTS_VECTOR(char *) fields;
     TTS_VECTOR(struct tts_record *) columns;
     UT_hash_handle hh;
