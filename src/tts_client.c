@@ -34,7 +34,7 @@
 #include <sys/socket.h>
 #include "pack.h"
 #include "tts_protocol.h"
-#include "ttsclient.h"
+#include "tts_client.h"
 
 #define COMMANDS_NR 4
 
@@ -82,18 +82,11 @@ static int tts_handle_create(char *line, struct tts_packet *tts_p) {
         create->fields = realloc(create->fields,
                                  (j + 1) * sizeof(*create->fields));
         create->fields[j].field_len = strlen(token);
-        printf("%s len %u\n", token, create->fields[j].field_len);
         create->fields[j].field = malloc(create->fields[j].field_len + 1);
         snprintf((char *) create->fields[j].field,
                  create->fields[j].field_len + 1, "%s", token);
         create->fields_len++;
     }
-    printf("Time series %s\n", create->ts_name);
-    printf("Fields nr: %u\n", create->fields_len);
-    printf("Fields: ");
-    for (int i = 0; i < create->fields_len; i++)
-        printf("%s ", create->fields[i].field);
-    printf("\n");
     return 0;
 }
 
@@ -153,16 +146,6 @@ static int tts_handle_addpoints(char *line, struct tts_packet *tts_p) {
         points->points[i].ts_flags.bits.ts_sec_set = 0;
         points->points[i].ts_flags.bits.ts_nsec_set = 0;
     }
-
-    printf("Time series %s\n", tts_p->addpoints.ts_name);
-    printf("Points %i:\n", tts_p->addpoints.points_len);
-    for (int i = 0; i < tts_p->addpoints.points_len; i++)
-        for (int j = 0; j < tts_p->addpoints.points[i].values_len; j++)
-        printf("%s: %s %lu %lu\n", tts_p->addpoints.points[i].values[j].field,
-               tts_p->addpoints.points[i].values[j].value,
-               tts_p->addpoints.points[i].ts_sec,
-               tts_p->addpoints.points[i].ts_nsec);
-
     return 0;
 }
 
@@ -283,12 +266,10 @@ int tts_client_recv_response(tts_client *client, struct tts_packet *tts_p) {
     int64_t val;
     uint8_t *ptr = (uint8_t *) client->buf + 1;
     int n = read(client->fd, client->buf, 5);
-    printf("%i\n", n);
     unpack_integer(&ptr, 'I', &val);
-    printf("%i\n", (int32_t) val);
     n = read(client->fd, client->buf+5, val);
     if (n <= 0)
         return -1;
-    tts_parse_res(client->buf, &tts_p);
+    tts_parse_res(client->buf, tts_p);
     return n;
 }

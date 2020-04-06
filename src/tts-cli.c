@@ -32,7 +32,8 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <sys/socket.h>
-#include "ttsclient.h"
+#include "tts_client.h"
+#include "tts_protocol.h"
 
 #define BUFSIZE     2048
 
@@ -40,11 +41,31 @@ static void prompt(tts_client *c) {
     printf("%s:%i> ", c->host, c->port);
 }
 
+static void print_tts_response(const struct tts_packet *tts_p) {
+    if (tts_p->header.byte == TTS_ACK) {
+        printf(tts_p->ack.rc == TTS_OK ? "OK\n" : "NOK\n");
+    } else if (tts_p->header.byte == TTS_QUERY_RESPONSE) {
+        unsigned long long ts = 0ULL;
+        for (size_t i = 0; i < tts_p->query_ack.len; ++i) {
+            ts = tts_p->query_ack.results[i].ts_sec * 1e9 + \
+                 tts_p->query_ack.results[i].ts_nsec;
+            printf("%llu ", ts);
+            for (size_t j = 0; j < tts_p->query_ack.results[i].res_len; ++j) {
+                printf("%s %s ",
+                       tts_p->query_ack.results[i].points[j].field,
+                       tts_p->query_ack.results[i].points[j].value);
+            }
+            printf("\n");
+        }
+    }
+}
+
 int main(int argc, char **argv) {
     (void) argc;
     (void) argv;
     size_t line_len = 0LL;
-    char *line = NULL, res[2048];
+    char *line = NULL;
+    struct tts_packet tts_p;
     tts_client c;
     tts_client_init(&c, "127.0.0.1", 6767);
     tts_client_connect(&c);
@@ -52,8 +73,8 @@ int main(int argc, char **argv) {
         prompt(&c);
         getline(&line, &line_len, stdin);
         tts_client_send_command(&c, line);
-        tts_client_recv_response(&c, res);
-        printf("%s\n", res);
+        tts_client_recv_response(&c, &tts_p);
+        print_tts_response(&tts_p);
     }
     tts_client_destroy(&c);
     free(line);

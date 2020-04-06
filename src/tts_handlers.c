@@ -32,12 +32,6 @@
 int tts_handle_tts_create(struct tts_payload *payload) {
     ev_tcp_handle *handle = payload->handle;
     struct tts_packet *packet = &payload->packet;
-    printf("Time series %s\n", packet->create.ts_name);
-    printf("Fields nr: %u\n", packet->create.fields_len);
-    printf("Fields: ");
-    for (int i = 0; i < packet->create.fields_len; i++)
-        printf("%s ", packet->create.fields[i].field);
-    printf("\n");
     struct tts_timeseries *ts = malloc(sizeof(*ts));
     TTS_TIMESERIES_INIT(ts, packet->create.ts_name, packet->create.fields_len);
     for (int i = 0; i < packet->create.fields_len; i++)
@@ -51,7 +45,6 @@ int tts_handle_tts_create(struct tts_payload *payload) {
 int tts_handle_tts_delete(struct tts_payload *payload) {
     ev_tcp_handle *handle = payload->handle;
     struct tts_packet *packet = &payload->packet;
-    printf("Time series %s\n", packet->drop.ts_name);
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->drop.ts_name;
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
@@ -100,21 +93,12 @@ int tts_handle_tts_addpoints(struct tts_payload *payload) {
         handle->buffer.size =
             pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
     }
-    printf("Time series %s\n", packet->addpoints.ts_name);
-    printf("Points:\n");
-    for (int i = 0; i < packet->addpoints.points_len; i++)
-        for (int j = 0; j < packet->addpoints.points[i].values_len; j++)
-        printf("%s: %s %lu %lu\n", packet->addpoints.points[i].values[j].field,
-               packet->addpoints.points[i].values[j].value,
-               packet->addpoints.points[i].ts_sec,
-               packet->addpoints.points[i].ts_nsec);
     return TTS_OK;
 }
 
 int tts_handle_tts_query(struct tts_payload *payload) {
     ev_tcp_handle *handle = payload->handle;
     struct tts_packet *packet = &payload->packet;
-    printf("Time series %s\n", packet->query.ts_name);
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->query.ts_name;
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
