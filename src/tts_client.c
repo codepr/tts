@@ -40,24 +40,24 @@
 
 typedef int (*tts_cmd_handler)(char *, struct tts_packet *);
 
-static int tts_handle_create(char *, struct tts_packet *);
-static int tts_handle_delete(char *, struct tts_packet *);
-static int tts_handle_addpoints(char *, struct tts_packet *);
+static int tts_handle_new(char *, struct tts_packet *);
+static int tts_handle_del(char *, struct tts_packet *);
+static int tts_handle_add(char *, struct tts_packet *);
 static int tts_handle_query(char *, struct tts_packet *);
 //static void tts_handle_ack(char *);
 //static void tts_handle_query_response(char *);
 
 static const char *cmds[COMMANDS_NR] = {
-    "create",
-    "delete",
-    "addpoints",
+    "new",
+    "del",
+    "add",
     "query"
 };
 
 static tts_cmd_handler handlers[4] = {
-    tts_handle_create,
-    tts_handle_delete,
-    tts_handle_addpoints,
+    tts_handle_new,
+    tts_handle_del,
+    tts_handle_add,
     tts_handle_query
 };
 
@@ -71,7 +71,7 @@ static inline void remove_newline(char *str) {
     *ptr = '\0';
 }
 
-static int tts_handle_create(char *line, struct tts_packet *tts_p) {
+static int tts_handle_new(char *line, struct tts_packet *tts_p) {
     tts_p->header.byte = TTS_CREATE;
     struct tts_create *create = &tts_p->create;
     char *token = strtok(line, " ");
@@ -90,7 +90,7 @@ static int tts_handle_create(char *line, struct tts_packet *tts_p) {
     return 0;
 }
 
-static int tts_handle_delete(char *line, struct tts_packet *tts_p) {
+static int tts_handle_del(char *line, struct tts_packet *tts_p) {
     tts_p->header.byte = TTS_DELETE;
     struct tts_delete *drop = &tts_p->drop;
     char *token = strtok(line, " ");
@@ -100,7 +100,7 @@ static int tts_handle_delete(char *line, struct tts_packet *tts_p) {
     return 0;
 }
 
-static int tts_handle_addpoints(char *line, struct tts_packet *tts_p) {
+static int tts_handle_add(char *line, struct tts_packet *tts_p) {
     tts_p->header.byte = TTS_ADDPOINTS;
     struct tts_addpoints *points = &tts_p->addpoints;
     char *end_str, *end_val, *vals = NULL;
