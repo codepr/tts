@@ -27,7 +27,6 @@
 
 #include <ctype.h>
 #include <errno.h>
-#include <stdio.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -35,10 +34,10 @@
 #include <sys/socket.h>
 #include "pack.h"
 #include "tts_protocol.h"
+#include "ttsclient.h"
 
 #define COMMANDS_NR 4
 
-typedef struct tts_client tts_client;
 typedef int (*tts_cmd_handler)(char *, struct tts_packet *);
 
 static int tts_handle_create(char *, struct tts_packet *);
@@ -47,15 +46,6 @@ static int tts_handle_addpoints(char *, struct tts_packet *);
 static int tts_handle_query(char *, struct tts_packet *);
 //static void tts_handle_ack(char *);
 //static void tts_handle_query_response(char *);
-
-struct tts_client {
-    int fd;
-    int port;
-    char *host;
-    size_t bufsize;
-    size_t capacity;
-    char *buf;
-};
 
 static const char *cmds[COMMANDS_NR] = {
     "create",
@@ -211,29 +201,8 @@ err:
     return -1;
 }
 
-static ssize_t tts_parse_res(char *res, char *buf) {
-    struct tts_packet tts_p;
-    uint8_t opcode = *res;
-    unpack_tts_packet((uint8_t *) res, &tts_p);
-    if (opcode == TTS_ACK) {
-        if (tts_p.ack.rc == TTS_OK)
-            snprintf(buf, 3, "%s", "OK");
-        else
-            snprintf(buf, 4, "%s", "NOK");
-    } else if (opcode == TTS_QUERY_RESPONSE) {
-        unsigned long long ts;
-        for (uint64_t i = 0; i < tts_p.query_ack.len; ++i) {
-            ts = tts_p.query_ack.results[i].ts_sec * 1e9 +
-                tts_p.query_ack.results[i].ts_nsec;
-            for (uint64_t j = 0; j < tts_p.query_ack.results[i].res_len; ++j) {
-                snprintf(buf, 20 + tts_p.query_ack.results[i].points[j].field_len + tts_p.query_ack.results[i].points[j].value_len,
-                         "%llu %s %s",
-                         ts,
-                         tts_p.query_ack.results[i].points[j].field,
-                         tts_p.query_ack.results[i].points[j].value);
-            }
-        }
-    }
+static ssize_t tts_parse_res(char *res, struct tts_packet *tts_p) {
+    unpack_tts_packet((uint8_t *) res, tts_p);
     return 0;
 }
 
@@ -310,7 +279,7 @@ int tts_client_send_command(tts_client *client, char *command) {
     return n;
 }
 
-int tts_client_recv_response(tts_client *client, char *response) {
+int tts_client_recv_response(tts_client *client, struct tts_packet *tts_p) {
     int64_t val;
     uint8_t *ptr = (uint8_t *) client->buf + 1;
     int n = read(client->fd, client->buf, 5);
@@ -320,6 +289,6 @@ int tts_client_recv_response(tts_client *client, char *response) {
     n = read(client->fd, client->buf+5, val);
     if (n <= 0)
         return -1;
-    tts_parse_res(client->buf, response);
+    tts_parse_res(client->buf, &tts_p);
     return n;
 }
