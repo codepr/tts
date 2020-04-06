@@ -131,7 +131,7 @@ int tts_handle_tts_query(struct tts_payload *payload) {
             handle->buffer.size =
                 pack_tts_query_ack((uint8_t *) handle->buffer.buf, &qa);
         } else {
-            size_t ts_size = TTS_VECTOR_SIZE(ts->timestamps);
+            size_t ts_size = TTS_VECTOR_SIZE(ts->timestamps) - 1;
             unsigned long long major_of = TTS_VECTOR_AT(ts->timestamps, 0);
             unsigned long long minor_of = TTS_VECTOR_AT(ts->timestamps, ts_size);
             struct tts_query_ack qa;
@@ -180,16 +180,18 @@ int tts_handle_tts_query(struct tts_payload *payload) {
                 if (packet->query.bits.minor_of == 1)
                     minor_of = packet->query.minor_of;
                 size_t hi_idx = 0ULL, lo_idx = 0ULL;
-                TTS_VECTOR_BINSEARCH(ts->timestamps, major_of, &hi_idx);
-                TTS_VECTOR_BINSEARCH(ts->timestamps, minor_of, &lo_idx);
-                unsigned long long range = hi_idx - lo_idx;
+                TTS_VECTOR_BINSEARCH(ts->timestamps, major_of, &lo_idx);
+                TTS_VECTOR_BINSEARCH(ts->timestamps, minor_of, &hi_idx);
+                printf("minor_of %llu major_of %llu high %lu low %lu\n",
+                       minor_of, major_of, hi_idx, lo_idx);
+                unsigned long long range = hi_idx - lo_idx + 1;
                 qa.results = calloc(range, sizeof(*qa.results));
                 struct tts_record *record;
                 unsigned long long t;
                 qa.len = range;
-                for (size_t i = lo_idx; i < hi_idx; ++i) {
-                    t = TTS_VECTOR_AT(ts->timestamps, i);
-                    record = TTS_VECTOR_AT(ts->columns, i);
+                for (size_t i = 0; i < range; ++i) {
+                    t = TTS_VECTOR_AT(ts->timestamps, i + lo_idx);
+                    record = TTS_VECTOR_AT(ts->columns, i + lo_idx);
                     qa.results[i].rc = TTS_OK;
                     qa.results[i].ts_sec = t / (unsigned long long) 1e9;
                     qa.results[i].ts_nsec = t % (unsigned long long) 1e9;

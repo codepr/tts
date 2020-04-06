@@ -167,42 +167,29 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
     if (!token) {
         tts_p->query.byte = 0x00;
     } else  {
-        struct timespec ts;
         if (strcmp(token, ">") == 0) {
             tts_p->query.bits.major_of = 1;
-            token = strtok(line, " ");
+            token = strtok(NULL, " ");
             tts_p->query.major_of = atoi(token);
-            if (get_digits(tts_p->query.major_of) == 10) {
-                clock_gettime(CLOCK_REALTIME, &ts);
+            if (get_digits(tts_p->query.major_of) <= 10)
                 tts_p->query.major_of *= 1e9;
-                tts_p->query.major_of += ts.tv_nsec;
-            }
         } else if (strcmp(token, "<") == 0) {
             tts_p->query.bits.minor_of = 1;
-            token = strtok(line, " ");
+            token = strtok(NULL, " ");
             tts_p->query.minor_of = atoi(token);
-            if (get_digits(tts_p->query.minor_of) == 10) {
-                clock_gettime(CLOCK_REALTIME, &ts);
+            if (get_digits(tts_p->query.minor_of) <= 10)
                 tts_p->query.minor_of *= 1e9;
-                tts_p->query.minor_of += ts.tv_nsec;
-            }
         } else if (strcasecmp(token, "range") == 0) {
             tts_p->query.bits.minor_of = 1;
             tts_p->query.bits.major_of = 1;
-            token = strtok(line, " ");
+            token = strtok(NULL, " ");
             tts_p->query.minor_of = atoi(token);
-            token = strtok(line, " ");
+            token = strtok(NULL, " ");
             tts_p->query.major_of = atoi(token);
-            if (get_digits(tts_p->query.minor_of) == 10) {
-                clock_gettime(CLOCK_REALTIME, &ts);
+            if (get_digits(tts_p->query.minor_of) <= 10)
                 tts_p->query.minor_of *= 1e9;
-                tts_p->query.minor_of += ts.tv_nsec;
-            }
-            if (get_digits(tts_p->query.major_of) == 10) {
-                clock_gettime(CLOCK_REALTIME, &ts);
+            if (get_digits(tts_p->query.major_of) <= 10)
                 tts_p->query.major_of *= 1e9;
-                tts_p->query.major_of += ts.tv_nsec;
-            }
         } else if (strcasecmp(token, "first") == 0) {
             printf("FIRST\n");
             tts_p->query.bits.first = 1;

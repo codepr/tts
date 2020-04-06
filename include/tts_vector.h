@@ -41,15 +41,15 @@
     T *data;                   \
 }
 
-#define TTS_VECTOR_INIT(vec, cap, item_size) do {   \
-    assert((cap) > 0);                              \
-    (vec).size = 0;                                 \
-    (vec).capacity = (cap);                         \
-    (vec).data = calloc((cap), (item_size));        \
+#define TTS_VECTOR_INIT(vec, cap) do {                  \
+    assert((cap) > 0);                                  \
+    (vec).size = 0;                                     \
+    (vec).capacity = (cap);                             \
+    (vec).data = calloc((cap), sizeof((vec).data[0]));  \
 } while (0)
 
-#define TTS_VECTOR_NEW(vec, item_size) \
-    TTS_VECTOR_INIT((vec), TTS_VECTOR_BASE_SIZE, (item_size))
+#define TTS_VECTOR_NEW(vec) \
+    TTS_VECTOR_INIT((vec), TTS_VECTOR_BASE_SIZE)
 
 #define TTS_VECTOR_DESTROY(vec) free((vec).data)
 
@@ -57,12 +57,13 @@
 
 #define TTS_VECTOR_CAPACITY(vec) (vec).capacity
 
-#define TTS_VECTOR_APPEND(vec, item) do {                       \
-    if (TTS_VECTOR_SIZE((vec)) == TTS_VECTOR_CAPACITY((vec))) { \
-        (vec).capacity *= 2;                                    \
-        (vec).data = realloc((vec).data, (vec).capacity);       \
-    }                                                           \
-    (vec).data[(vec).size++] = (item);                          \
+#define TTS_VECTOR_APPEND(vec, item) do {                               \
+    if (TTS_VECTOR_SIZE((vec)) + 1 == TTS_VECTOR_CAPACITY((vec))) {     \
+        (vec).capacity *= 2;                                            \
+        (vec).data = realloc((vec).data,                                \
+                             (vec).capacity * sizeof((vec).data[0]));   \
+    }                                                                   \
+    (vec).data[(vec).size++] = (item);                                  \
 } while (0)
 
 #define TTS_VECTOR_AT(vec, index) (vec).data[(index)]

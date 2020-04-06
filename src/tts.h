@@ -97,12 +97,12 @@ static inline int timespec_compare(const struct timespec *t1,
     return -1;
 }
 
-#define TTS_TIMESERIES_INIT(ts, ts_name, nr) do {                           \
-    (ts)->fields_nr = (nr);                                                 \
-    snprintf((ts)->name, TTS_TS_NAME_MAX_LENGTH, "%s", (ts_name));          \
-    TTS_VECTOR_NEW((ts)->fields, sizeof(char *));                           \
-    TTS_VECTOR_NEW((ts)->timestamps, sizeof(struct timespec));              \
-    TTS_VECTOR_NEW((ts)->columns, sizeof(TTS_VECTOR(struct tts_record)));   \
+#define TTS_TIMESERIES_INIT(ts, ts_name, nr) do {                   \
+    (ts)->fields_nr = (nr);                                         \
+    snprintf((ts)->name, TTS_TS_NAME_MAX_LENGTH, "%s", (ts_name));  \
+    TTS_VECTOR_NEW((ts)->fields);                                   \
+    TTS_VECTOR_NEW((ts)->timestamps);                               \
+    TTS_VECTOR_NEW((ts)->columns);                                  \
 } while (0)
 
 #endif
