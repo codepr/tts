@@ -192,8 +192,6 @@ struct tts_packet {
 
 void unpack_tts_packet(uint8_t *, struct tts_packet *);
 ssize_t pack_tts_packet(const struct tts_packet *, uint8_t *);
-uint64_t pack_tts_ack(uint8_t *, int);
 void tts_packet_destroy(struct tts_packet *);
-uint64_t pack_tts_query_ack(uint8_t *, const struct tts_query_ack *);
 
 #endif

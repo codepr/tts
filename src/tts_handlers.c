@@ -38,7 +38,14 @@ int tts_handle_tts_create(struct tts_payload *payload) {
         TTS_VECTOR_APPEND(ts->fields, (char *) packet->create.fields[i].field);
     // add to db hashmap
     HASH_ADD_STR(payload->tts_db->timeseries, name, ts);
-    handle->buffer.size = pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
+    struct tts_packet response = {
+        .header.byte = TTS_ACK,
+        .ack = (struct tts_ack) {
+            .rc = TTS_OK
+        }
+    };
+    handle->buffer.size = pack_tts_packet(&response,
+                                          (uint8_t *) handle->buffer.buf);
     return TTS_OK;
 }
 
@@ -48,14 +55,18 @@ int tts_handle_tts_delete(struct tts_payload *payload) {
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->drop.ts_name;
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
-    if (!ts) {
-        handle->buffer.size =
-            pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_NOK);
-    } else {
+    struct tts_packet response = {
+        .header.byte = TTS_ACK,
+        .ack = (struct tts_ack) {
+            .rc = TTS_OK
+        }
+    };
+    if (!ts)
+        response.ack.rc = TTS_OK;
+    else
         HASH_DEL(payload->tts_db->timeseries, ts);
-        handle->buffer.size =
-            pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
-    }
+    handle->buffer.size =
+        pack_tts_packet(&response, (uint8_t *) handle->buffer.buf);
     return TTS_OK;
 }
 
@@ -65,9 +76,14 @@ int tts_handle_tts_addpoints(struct tts_payload *payload) {
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->addpoints.ts_name;
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
+    struct tts_packet response = {
+        .header.byte = TTS_ACK,
+        .ack = (struct tts_ack) {
+            .rc = TTS_OK
+        }
+    };
     if (!ts) {
-        handle->buffer.size =
-            pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_NOK);
+        response.ack.rc = TTS_NOK;
     } else {
         struct timespec tv;
         clock_gettime(CLOCK_REALTIME, &tv);
@@ -89,9 +105,9 @@ int tts_handle_tts_addpoints(struct tts_payload *payload) {
             }
             TTS_VECTOR_APPEND(ts->columns, records);
         }
-        handle->buffer.size =
-            pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_OK);
     }
+    handle->buffer.size =
+        pack_tts_packet(&response, (uint8_t *) handle->buffer.buf);
     return TTS_OK;
 }
 
@@ -101,78 +117,85 @@ int tts_handle_tts_query(struct tts_payload *payload) {
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->query.ts_name;
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
+    struct tts_packet response = {
+        .header.byte = TTS_ACK,
+        .ack = (struct tts_ack) {
+            .rc = TTS_OK
+        }
+    };
     if (!ts) {
+        response.ack.rc = TTS_NOK;
         handle->buffer.size =
-            pack_tts_ack((uint8_t *) handle->buffer.buf, TTS_NOK);
+            pack_tts_packet(&response, (uint8_t *) handle->buffer.buf);
     } else {
+        response.header.byte = TTS_QUERY_RESPONSE;
+        struct tts_query_ack *qa = &response.query_ack;
         if (packet->query.byte == 0x00) {
             size_t colsize = TTS_VECTOR_SIZE(ts->timestamps);
-            struct tts_query_ack qa;
-            qa.results = calloc(colsize, sizeof(*qa.results));
+            qa->results = calloc(colsize, sizeof(*qa->results));
             struct tts_record *record;
             unsigned long long t;
-            qa.len = colsize;
+            qa->len = colsize;
             for (size_t i = 0; i < colsize; ++i) {
                 t = TTS_VECTOR_AT(ts->timestamps, i);
                 record = TTS_VECTOR_AT(ts->columns, i);
-                qa.results[i].rc = TTS_OK;
-                qa.results[i].ts_sec = t / (unsigned long long) 1e9;
-                qa.results[i].ts_nsec = t % (unsigned long long) 1e9;
-                qa.results[i].res_len = ts->fields_nr;
-                qa.results[i].points =
-                    calloc(ts->fields_nr, sizeof(*qa.results[i].points));
+                qa->results[i].rc = TTS_OK;
+                qa->results[i].ts_sec = t / (unsigned long long) 1e9;
+                qa->results[i].ts_nsec = t % (unsigned long long) 1e9;
+                qa->results[i].res_len = ts->fields_nr;
+                qa->results[i].points =
+                    calloc(ts->fields_nr, sizeof(*qa->results[i].points));
                 for (size_t j = 0; j < ts->fields_nr; ++j) {
-                    qa.results[i].points[j].field_len = strlen(record[j].field);
-                    qa.results[i].points[j].field = (uint8_t *) record[j].field;
-                    qa.results[i].points[j].value_len = strlen(record[j].value);
-                    qa.results[i].points[j].value = record[j].value;
+                    qa->results[i].points[j].field_len = strlen(record[j].field);
+                    qa->results[i].points[j].field = (uint8_t *) record[j].field;
+                    qa->results[i].points[j].value_len = strlen(record[j].value);
+                    qa->results[i].points[j].value = record[j].value;
                 }
             }
             handle->buffer.size =
-                pack_tts_query_ack((uint8_t *) handle->buffer.buf, &qa);
+                pack_tts_packet(&response, (uint8_t *) handle->buffer.buf);
         } else {
             size_t ts_size = TTS_VECTOR_SIZE(ts->timestamps) - 1;
             unsigned long long major_of = TTS_VECTOR_AT(ts->timestamps, 0);
             unsigned long long minor_of = TTS_VECTOR_AT(ts->timestamps, ts_size);
-            struct tts_query_ack qa;
             if (packet->query.bits.first == 1) {
-                qa.results = calloc(1, sizeof(*qa.results));
+                qa->results = calloc(1, sizeof(*qa->results));
                 struct tts_record *record;
                 unsigned long long t;
-                qa.len = 1;
+                qa->len = 1;
                 t = TTS_VECTOR_AT(ts->timestamps, 0);
                 record = TTS_VECTOR_AT(ts->columns, 0);
-                qa.results[0].rc = TTS_OK;
-                qa.results[0].ts_sec = t / (unsigned long long) 1e9;
-                qa.results[0].ts_nsec = t % (unsigned long long) 1e9;
-                qa.results[0].res_len = ts->fields_nr;
-                qa.results[0].points =
-                    calloc(ts->fields_nr, sizeof(*qa.results[0].points));
+                qa->results[0].rc = TTS_OK;
+                qa->results[0].ts_sec = t / (unsigned long long) 1e9;
+                qa->results[0].ts_nsec = t % (unsigned long long) 1e9;
+                qa->results[0].res_len = ts->fields_nr;
+                qa->results[0].points =
+                    calloc(ts->fields_nr, sizeof(*qa->results[0].points));
                 for (size_t j = 0; j < ts->fields_nr; ++j) {
-                    qa.results[0].points[j].field_len = strlen(record[j].field);
-                    qa.results[0].points[j].field = (uint8_t *) record[j].field;
-                    qa.results[0].points[j].value_len = strlen(record[j].value);
-                    qa.results[0].points[j].value = record[j].value;
+                    qa->results[0].points[j].field_len = strlen(record[j].field);
+                    qa->results[0].points[j].field = (uint8_t *) record[j].field;
+                    qa->results[0].points[j].value_len = strlen(record[j].value);
+                    qa->results[0].points[j].value = record[j].value;
                 }
             } else if (packet->query.bits.last == 1) {
-                qa.results = calloc(1, sizeof(*qa.results));
+                qa->results = calloc(1, sizeof(*qa->results));
                 struct tts_record *record;
                 unsigned long long t;
                 size_t idx = TTS_VECTOR_SIZE(ts->timestamps) - 1;
-                qa.len = 1;
+                qa->len = 1;
                 t = TTS_VECTOR_AT(ts->timestamps, idx);
                 record = TTS_VECTOR_AT(ts->columns, idx);
-                qa.results[0].rc = TTS_OK;
-                qa.results[0].ts_sec = t / (unsigned long long) 1e9;
-                qa.results[0].ts_nsec = t % (unsigned long long) 1e9;
-                qa.results[0].res_len = ts->fields_nr;
-                qa.results[0].points =
-                    calloc(ts->fields_nr, sizeof(*qa.results[0].points));
+                qa->results[0].rc = TTS_OK;
+                qa->results[0].ts_sec = t / (unsigned long long) 1e9;
+                qa->results[0].ts_nsec = t % (unsigned long long) 1e9;
+                qa->results[0].res_len = ts->fields_nr;
+                qa->results[0].points =
+                    calloc(ts->fields_nr, sizeof(*qa->results[0].points));
                 for (size_t j = 0; j < ts->fields_nr; ++j) {
-                    qa.results[0].points[j].field_len = strlen(record[j].field);
-                    qa.results[0].points[j].field = (uint8_t *) record[j].field;
-                    qa.results[0].points[j].value_len = strlen(record[j].value);
-                    qa.results[0].points[j].value = record[j].value;
+                    qa->results[0].points[j].field_len = strlen(record[j].field);
+                    qa->results[0].points[j].field = (uint8_t *) record[j].field;
+                    qa->results[0].points[j].value_len = strlen(record[j].value);
+                    qa->results[0].points[j].value = record[j].value;
                 }
             } else {
                 if (packet->query.bits.major_of == 1)
@@ -183,24 +206,24 @@ int tts_handle_tts_query(struct tts_payload *payload) {
                 TTS_VECTOR_BINSEARCH(ts->timestamps, major_of, &lo_idx);
                 TTS_VECTOR_BINSEARCH(ts->timestamps, minor_of, &hi_idx);
                 unsigned long long range = hi_idx - lo_idx + 1;
-                qa.results = calloc(range, sizeof(*qa.results));
+                qa->results = calloc(range, sizeof(*qa->results));
                 struct tts_record *record;
                 unsigned long long t;
-                qa.len = range;
+                qa->len = range;
                 for (size_t i = 0; i < range; ++i) {
                     t = TTS_VECTOR_AT(ts->timestamps, i + lo_idx);
                     record = TTS_VECTOR_AT(ts->columns, i + lo_idx);
-                    qa.results[i].rc = TTS_OK;
-                    qa.results[i].ts_sec = t / (unsigned long long) 1e9;
-                    qa.results[i].ts_nsec = t % (unsigned long long) 1e9;
-                    qa.results[i].res_len = ts->fields_nr;
-                    qa.results[i].points =
-                        calloc(ts->fields_nr, sizeof(*qa.results[i].points));
+                    qa->results[i].rc = TTS_OK;
+                    qa->results[i].ts_sec = t / (unsigned long long) 1e9;
+                    qa->results[i].ts_nsec = t % (unsigned long long) 1e9;
+                    qa->results[i].res_len = ts->fields_nr;
+                    qa->results[i].points =
+                        calloc(ts->fields_nr, sizeof(*qa->results[i].points));
                     for (size_t j = 0; j < ts->fields_nr; ++j) {
-                        qa.results[i].points[j].field_len = strlen(record[j].field);
-                        qa.results[i].points[j].field = (uint8_t *) record[j].field;
-                        qa.results[i].points[j].value_len = strlen(record[j].value);
-                        qa.results[i].points[j].value = record[j].value;
+                        qa->results[i].points[j].field_len = strlen(record[j].field);
+                        qa->results[i].points[j].field = (uint8_t *) record[j].field;
+                        qa->results[i].points[j].value_len = strlen(record[j].value);
+                        qa->results[i].points[j].value = record[j].value;
                     }
                 }
                 if (packet->query.bits.mean == 1) {
@@ -209,10 +232,10 @@ int tts_handle_tts_query(struct tts_payload *payload) {
                         struct tts_query_ack qq;
                         memset(&qq, 0x00, sizeof(qq));
                         unsigned long long step = packet->query.mean_val * 1e6;
-                        unsigned long long next = qa.results[0].ts_sec * 1e9 + \
-                                                  qa.results[0].ts_nsec + step;
+                        unsigned long long next = qa->results[0].ts_sec * 1e9 + \
+                                                  qa->results[0].ts_nsec + step;
                         size_t i = 0;
-                        while (i < qa.len) {
+                        while (i < qa->len) {
                             qq.results = realloc(qq.results,
                                                  (j+1) * sizeof(*qq.results));
                             qq.results[j].res_len = 1;
@@ -222,12 +245,12 @@ int tts_handle_tts_query(struct tts_payload *payload) {
                             qq.results[j].points[0].field = packet->query.mean_field;
                             sum = 0;
                             count = 0;
-                            while (qa.results[i].ts_sec * 1e9 +
-                                   qa.results[i].ts_nsec < next) {
-                                for (size_t k = 0; k < qa.results[i].res_len; ++k) {
-                                    if (strcmp((char *) qa.results[i].points[k].field,
+                            while (qa->results[i].ts_sec * 1e9 +
+                                   qa->results[i].ts_nsec < next) {
+                                for (size_t k = 0; k < qa->results[i].res_len; ++k) {
+                                    if (strcmp((char *) qa->results[i].points[k].field,
                                                (char *) packet->query.mean_field) == 0) {
-                                        sum += atoi((char *) qa.results[i].points[k].value);
+                                        sum += atoi((char *) qa->results[i].points[k].value);
                                         count++;
                                     }
                                 }
@@ -241,14 +264,13 @@ int tts_handle_tts_query(struct tts_payload *payload) {
                             ++j;
                             next += step;
                         }
-                        qa = qq;
+                        qa = &qq;
                     }
                 }
             }
             handle->buffer.size =
-                pack_tts_query_ack((uint8_t *) handle->buffer.buf, &qa);
+                pack_tts_packet(&response, (uint8_t *) handle->buffer.buf);
         }
-
     }
     return TTS_OK;
 }

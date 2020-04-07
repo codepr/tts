@@ -31,6 +31,12 @@
 #include "tts_protocol.h"
 
 /*
+ * ========================
+ *   UNPACKING FUNCTONS
+ *========================
+ */
+
+/*
  * Unpack from binary to struct tts_create packet, the form of the packet is
  * pretty simple, we just proceed populating each member with its value from
  * the buffer, starting right after the header byte and the size:
@@ -326,7 +332,13 @@ void unpack_tts_packet(uint8_t *buf, struct tts_packet *tts_p) {
     }
 }
 
-ssize_t pack_tts_create(const struct tts_create *create, uint8_t *buf) {
+/*
+ * ========================
+ *    PACKING FUNCTONS
+ *========================
+ */
+
+static ssize_t pack_tts_create(const struct tts_create *create, uint8_t *buf) {
     ssize_t len = 0LL;
     uint8_t *ptr = buf;
     buf += sizeof(uint32_t);
@@ -338,17 +350,17 @@ ssize_t pack_tts_create(const struct tts_create *create, uint8_t *buf) {
         buf += sizeof(uint16_t) + create->fields[i].field_len;
     }
     pack_integer(&ptr, 'I', len);
-    len += sizeof(uint8_t);
+    len += sizeof(uint8_t) + sizeof(uint32_t);
     return len;
 }
 
-ssize_t pack_tts_delete(const struct tts_delete *drop, uint8_t *buf) {
+static ssize_t pack_tts_delete(const struct tts_delete *drop, uint8_t *buf) {
     ssize_t len = sizeof(uint8_t) + drop->ts_name_len;
     len += pack(buf, "IBs", len, drop->ts_name_len, drop->ts_name);
-    return len - sizeof(uint32_t);
+    return len;
 }
 
-ssize_t pack_tts_query(const struct tts_query *query, uint8_t *buf) {
+static ssize_t pack_tts_query(const struct tts_query *query, uint8_t *buf) {
     uint8_t *ptr = buf;
     buf += sizeof(uint32_t);
     ssize_t len = pack(buf, "BBs", query->byte, query->ts_name_len, query->ts_name);
@@ -370,10 +382,10 @@ ssize_t pack_tts_query(const struct tts_query *query, uint8_t *buf) {
         len += sizeof(uint64_t);
     }
     pack_integer(&ptr, 'I', len);
-    return len;
+    return len + sizeof(uint32_t);
 }
 
-ssize_t pack_tts_addpoints(const struct tts_addpoints *a, uint8_t *buf) {
+static ssize_t pack_tts_addpoints(const struct tts_addpoints *a, uint8_t *buf) {
     size_t len = 0;
     uint8_t *ptr = (uint8_t *) buf;
     buf += sizeof(uint32_t);
@@ -402,7 +414,37 @@ ssize_t pack_tts_addpoints(const struct tts_addpoints *a, uint8_t *buf) {
         }
     }
     pack_integer(&ptr, 'I', len);
-    return len;
+    return len + sizeof(uint32_t);
+}
+
+/*
+ * Simple helper to set a bytes buffer to an ACK response with a defined RC
+ */
+static ssize_t pack_tts_ack(const struct tts_ack *ack, uint8_t *buf) {
+    return pack(buf, "IB", 1, ack->rc);
+}
+
+ssize_t pack_tts_query_ack(const struct tts_query_ack *qa, uint8_t *buf) {
+    size_t len = 0LL;
+    size_t packed = 0LL;
+    uint8_t *ptr = buf + sizeof(uint32_t);
+    for (uint64_t i = 0; i < qa->len; ++i) {
+        packed = pack(ptr, "BQQH", qa->results[i].rc, qa->results[i].ts_sec,
+                      qa->results[i].ts_nsec, qa->results[i].res_len);
+        ptr += packed;
+        len += packed;
+        for (size_t j = 0; j < qa->results[i].res_len; ++j) {
+            packed = pack(ptr, "HsHs",
+                          qa->results[i].points[j].field_len,
+                          qa->results[i].points[j].field,
+                          qa->results[i].points[j].value_len,
+                          qa->results[i].points[j].value);
+            len += packed;
+            ptr += packed;
+        }
+    }
+    pack_integer(&buf, 'I', (uint32_t) len);
+    return len + sizeof(uint32_t);
 }
 
 ssize_t pack_tts_packet(const struct tts_packet *tts_p, uint8_t *buf) {
@@ -422,39 +464,13 @@ ssize_t pack_tts_packet(const struct tts_packet *tts_p, uint8_t *buf) {
         case TTS_QUERY:
             len += pack_tts_query(&tts_p->query, buf);
             break;
+        case TTS_ACK:
+            len += pack_tts_ack(&tts_p->ack, buf);
+            break;
+        case TTS_QUERY_RESPONSE:
+            len += pack_tts_query_ack(&tts_p->query_ack, buf);
+            break;
     }
-    return len + sizeof(uint32_t);
-}
-
-/*
- * Simple helper to set a bytes buffer to an ACK response with a defined RC
- */
-uint64_t pack_tts_ack(uint8_t *buf, int rc) {
-    return pack(buf, "BIB", TTS_ACK, 1, rc);
-}
-
-uint64_t pack_tts_query_ack(uint8_t *buf, const struct tts_query_ack *qa) {
-    size_t len = 0LL;
-    size_t packed = 0LL;
-    pack_integer(&buf, 'B', TTS_QUERY_RESPONSE);
-    uint8_t *ptr = buf + sizeof(uint32_t);
-    for (uint64_t i = 0; i < qa->len; ++i) {
-        packed = pack(ptr, "BQQH", qa->results[i].rc, qa->results[i].ts_sec,
-                      qa->results[i].ts_nsec, qa->results[i].res_len);
-        ptr += packed;
-        len += packed;
-        for (size_t j = 0; j < qa->results[i].res_len; ++j) {
-            packed = pack(ptr, "HsHs",
-                          qa->results[i].points[j].field_len,
-                          qa->results[i].points[j].field,
-                          qa->results[i].points[j].value_len,
-                          qa->results[i].points[j].value);
-            len += packed;
-            ptr += packed;
-        }
-    }
-    pack_integer(&buf, 'I', (uint32_t) len);
-    len += sizeof(uint8_t) + sizeof(uint32_t);
     return len;
 }
 
