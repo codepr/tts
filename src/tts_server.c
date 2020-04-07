@@ -31,6 +31,7 @@
 #define EV_SOURCE
 #define EV_TCP_SOURCE
 #include "ev_tcp.h"
+#include "tts_log.h"
 #include "tts_server.h"
 #include "tts_handlers.h"
 #include "tts_protocol.h"
@@ -42,15 +43,15 @@ struct tts_server tts_server;
 static void on_close(ev_tcp_handle *client, int err) {
     (void) client;
     if (err == EV_TCP_SUCCESS)
-        printf("Connection closed\n");
+        log_debug("Connection closed");
     else
-        printf("Connection closed: %s\n", ev_tcp_err(err));
+        log_debug("Connection closed: %s", ev_tcp_err(err));
     free(client);
 }
 
 static void on_write(ev_tcp_handle *client) {
     (void) client;
-    printf("Written response\n");
+    log_debug("Written response");
 }
 
 static void on_data(ev_tcp_handle *client) {
@@ -92,7 +93,7 @@ int tts_start_server(const char *host, int port) {
         exit(EXIT_FAILURE);
     }
 
-    printf("Listening on %s:%i\n", host, port);
+    log_debug("Listening on %s:%i", host, port);
 
     // Blocking call
     ev_tcp_server_run(&server);

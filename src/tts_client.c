@@ -183,18 +183,32 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
             tts_p->query.bits.minor_of = 1;
             tts_p->query.bits.major_of = 1;
             token = strtok(NULL, " ");
-            tts_p->query.minor_of = atoi(token);
-            token = strtok(NULL, " ");
             tts_p->query.major_of = atoi(token);
+            token = strtok(NULL, " ");
+            tts_p->query.minor_of = atoi(token);
             if (get_digits(tts_p->query.minor_of) <= 10)
                 tts_p->query.minor_of *= 1e9;
             if (get_digits(tts_p->query.major_of) <= 10)
                 tts_p->query.major_of *= 1e9;
         } else if (strcasecmp(token, "first") == 0) {
-            printf("FIRST\n");
             tts_p->query.bits.first = 1;
         } else if (strcasecmp(token, "last") == 0) {
             tts_p->query.bits.last = 1;
+        }
+        token = strtok(NULL, " ");
+        if (!token)
+            return 0;
+        if (strcasecmp(token, "avg") == 0) {
+            token = strtok(NULL, " ");
+            tts_p->query.mean_field = malloc(strlen(token) + 1);
+            tts_p->query.mean_field_len = strlen(token);
+            printf("token %s\n", token);
+            snprintf((char *) tts_p->query.mean_field,
+                     strlen(token) + 1, "%s", token);
+            token = strtok(NULL, " ");
+            tts_p->query.mean_val = atoi(token);
+            tts_p->query.bits.mean = 1;
+            tts_p->query.bits.mean_field = 1;
         }
     }
     return 0;

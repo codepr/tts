@@ -238,6 +238,13 @@ static void unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
     if (q->bits.mean == 1) {
         unpack_integer(&buf, 'Q', (int64_t *) &q->mean_val);
         len -= sizeof(uint64_t);
+        if (q->bits.mean_field == 1) {
+            unpack_integer(&buf, 'H', (int64_t *) &q->mean_field_len);
+            len -= sizeof(uint16_t);
+            q->mean_field = malloc(q->mean_field_len + 1);
+            unpack_bytes(&buf, q->mean_field_len, q->mean_field);
+            len -= q->mean_field_len;
+        }
     }
     if (q->bits.major_of == 1) {
         unpack_integer(&buf, 'Q', (int64_t *) &q->major_of);
@@ -349,6 +356,10 @@ ssize_t pack_tts_query(const struct tts_query *query, uint8_t *buf) {
     if (query->bits.mean == 1) {
         pack_integer(&buf, 'Q', query->mean_val);
         len += sizeof(uint64_t);
+        if (query->bits.mean_field == 1) {
+            len += pack(buf, "Hs", query->mean_field_len, query->mean_field);
+            buf += sizeof(uint16_t) + query->mean_field_len;
+        }
     }
     if (query->bits.major_of == 1) {
         pack_integer(&buf, 'Q', query->major_of);

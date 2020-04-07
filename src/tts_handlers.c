@@ -182,8 +182,6 @@ int tts_handle_tts_query(struct tts_payload *payload) {
                 size_t hi_idx = 0ULL, lo_idx = 0ULL;
                 TTS_VECTOR_BINSEARCH(ts->timestamps, major_of, &lo_idx);
                 TTS_VECTOR_BINSEARCH(ts->timestamps, minor_of, &hi_idx);
-                printf("minor_of %llu major_of %llu high %lu low %lu\n",
-                       minor_of, major_of, hi_idx, lo_idx);
                 unsigned long long range = hi_idx - lo_idx + 1;
                 qa.results = calloc(range, sizeof(*qa.results));
                 struct tts_record *record;
@@ -203,6 +201,47 @@ int tts_handle_tts_query(struct tts_payload *payload) {
                         qa.results[i].points[j].field = (uint8_t *) record[j].field;
                         qa.results[i].points[j].value_len = strlen(record[j].value);
                         qa.results[i].points[j].value = record[j].value;
+                    }
+                }
+                if (packet->query.bits.mean == 1) {
+                    if (packet->query.bits.mean_field == 1) {
+                        size_t j = 0, sum = 0, count = 0;
+                        struct tts_query_ack qq;
+                        memset(&qq, 0x00, sizeof(qq));
+                        unsigned long long step = packet->query.mean_val * 1e6;
+                        unsigned long long next = qa.results[0].ts_sec * 1e9 + \
+                                                  qa.results[0].ts_nsec + step;
+                        size_t i = 0;
+                        while (i < qa.len) {
+                            qq.results = realloc(qq.results,
+                                                 (j+1) * sizeof(*qq.results));
+                            qq.results[j].res_len = 1;
+                            qq.results[j].points =
+                                calloc(1, sizeof(*qq.results[j].points));
+                            qq.results[j].points[0].field_len = packet->query.mean_field_len;
+                            qq.results[j].points[0].field = packet->query.mean_field;
+                            sum = 0;
+                            count = 0;
+                            while (qa.results[i].ts_sec * 1e9 +
+                                   qa.results[i].ts_nsec < next) {
+                                for (size_t k = 0; k < qa.results[i].res_len; ++k) {
+                                    if (strcmp((char *) qa.results[i].points[k].field,
+                                               (char *) packet->query.mean_field) == 0) {
+                                        sum += atoi((char *) qa.results[i].points[k].value);
+                                        count++;
+                                    }
+                                }
+                                ++i;
+                            }
+                            sum /= count == 0 ? 1 : count;
+                            qq.results[j].points[0].value = malloc(21);
+                            snprintf((char *) qq.results[j].points[0].value, 21, "%lu", sum);
+                            qq.results[j].points[0].value_len =
+                                strlen((char *) qq.results[j].points[0].value);
+                            ++j;
+                            next += step;
+                        }
+                        qa = qq;
                     }
                 }
             }

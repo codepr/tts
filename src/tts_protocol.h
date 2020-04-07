@@ -127,15 +127,20 @@ struct tts_query {
         uint8_t byte;
         struct {
             uint8_t mean : 1;
+            uint8_t mean_field : 1;
             uint8_t first : 1;
             uint8_t last : 1;
             uint8_t major_of : 1;
             uint8_t minor_of : 1;
-            uint8_t reserved : 3;
+            uint8_t reserved : 2;
         } bits;
     };
     TS_NAME_FIELD
-    uint64_t mean_val;   // present only if mean = 1
+    struct {
+        uint64_t mean_val;   // present only if mean = 1
+        uint16_t mean_field_len;
+        uint8_t *mean_field;
+    };
     uint64_t major_of;   // present only if major_of = 1
     uint64_t minor_of;   // present only if minor_of = 1
 };
