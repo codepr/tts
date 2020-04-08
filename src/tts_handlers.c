@@ -29,7 +29,7 @@
 #include "tts_protocol.h"
 #include "tts_handlers.h"
 
-int tts_handle_tts_create(struct tts_payload *payload) {
+static int handle_tts_create(struct tts_payload *payload) {
     ev_tcp_handle *handle = payload->handle;
     struct tts_packet *packet = &payload->packet;
     struct tts_timeseries *ts = malloc(sizeof(*ts));
@@ -49,7 +49,7 @@ int tts_handle_tts_create(struct tts_payload *payload) {
     return TTS_OK;
 }
 
-int tts_handle_tts_delete(struct tts_payload *payload) {
+static int handle_tts_delete(struct tts_payload *payload) {
     ev_tcp_handle *handle = payload->handle;
     struct tts_packet *packet = &payload->packet;
     struct tts_timeseries *ts = NULL;
@@ -70,7 +70,7 @@ int tts_handle_tts_delete(struct tts_payload *payload) {
     return TTS_OK;
 }
 
-int tts_handle_tts_addpoints(struct tts_payload *payload) {
+static int handle_tts_addpoints(struct tts_payload *payload) {
     ev_tcp_handle *handle = payload->handle;
     struct tts_packet *packet = &payload->packet;
     struct tts_timeseries *ts = NULL;
@@ -111,7 +111,7 @@ int tts_handle_tts_addpoints(struct tts_payload *payload) {
     return TTS_OK;
 }
 
-int tts_handle_tts_query(struct tts_payload *payload) {
+static int handle_tts_query(struct tts_payload *payload) {
     ev_tcp_handle *handle = payload->handle;
     struct tts_packet *packet = &payload->packet;
     struct tts_timeseries *ts = NULL;
@@ -279,16 +279,16 @@ int tts_handle_packet(struct tts_payload *payload) {
     int rc = 0;
     switch (payload->packet.header.byte) {
         case TTS_CREATE:
-            rc = tts_handle_tts_create(payload);
+            rc = handle_tts_create(payload);
             break;
         case TTS_DELETE:
-            rc = tts_handle_tts_delete(payload);
+            rc = handle_tts_delete(payload);
             break;
         case TTS_ADDPOINTS:
-            rc = tts_handle_tts_addpoints(payload);
+            rc = handle_tts_addpoints(payload);
             break;
         case TTS_QUERY:
-            rc = tts_handle_tts_query(payload);
+            rc = handle_tts_query(payload);
             break;
     }
     return rc;
