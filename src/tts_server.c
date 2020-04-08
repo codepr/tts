@@ -43,7 +43,7 @@ struct tts_server tts_server;
 static void on_close(ev_tcp_handle *client, int err) {
     (void) client;
     if (err == EV_TCP_SUCCESS)
-        log_debug("Connection closed");
+        log_debug("Closed connection with %s:%i", client->addr, client->port);
     else
         log_debug("Connection closed: %s", ev_tcp_err(err));
     free(client);
@@ -74,6 +74,7 @@ static void on_connection(ev_tcp_handle *server) {
                       err == -1 ? strerror(errno) : ev_tcp_err(err));
         free(client);
     } else {
+        log_debug("New connection from %s:%i", client->addr, client->port);
         ev_tcp_handle_set_on_close(client, on_close);
     }
 }
