@@ -207,6 +207,17 @@ static int handle_tts_query(struct tts_payload *payload) {
                 size_t hi_idx = 0ULL, lo_idx = 0ULL;
                 TTS_VECTOR_BINSEARCH(ts->timestamps, major_of, &lo_idx);
                 TTS_VECTOR_BINSEARCH(ts->timestamps, minor_of, &hi_idx);
+                // Update range to include neighbour values
+                for (size_t i = lo_idx - 1; i > 0 &&
+                     TTS_VECTOR_AT(ts->timestamps, i) >= major_of;
+                     --i) {
+                    --lo_idx;
+                }
+                for (size_t i = hi_idx + 1; i < TTS_VECTOR_SIZE(ts->timestamps) &&
+                     TTS_VECTOR_AT(ts->timestamps, i) <= minor_of;
+                     ++i) {
+                    ++hi_idx;
+                }
                 unsigned long long range = hi_idx - lo_idx + 1;
                 res_nr = range; points_nr = ts->fields_nr;
                 qa->results = calloc(range, sizeof(*qa->results));
