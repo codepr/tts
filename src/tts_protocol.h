@@ -43,6 +43,8 @@
 #define TTS_ACK            0x04
 #define TTS_QUERY_RESPONSE 0x05
 
+#define TTS_QUERY_ALL_TIMESERIES 0x00
+
 /* First two mandatory fields on each command */
 #define TS_NAME_FIELD    \
     uint8_t ts_name_len; \
