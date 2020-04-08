@@ -158,29 +158,35 @@ int64_t unpacki64(uint8_t *buf) {
  *     32 |    i        I
  *     64 |    q        Q
  */
-void pack_integer(uint8_t **buf, int8_t type, int64_t val) {
+size_t pack_integer(uint8_t **buf, int8_t type, int64_t val) {
+    size_t len = 0;
     switch (type) {
         case 'b':
         case 'B':
             **buf = val;
             *buf += 1;
+            len = 1;
             break;
         case 'h':
         case 'H':
             packi16(*buf, val);
             *buf += 2;
+            len = 2;
             break;
         case 'i':
         case 'I':
             packi32(*buf, val);
             *buf += 4;
+            len = 4;
             break;
         case 'q':
         case 'Q':
             packi64(*buf, val);
             *buf += 8;
+            len = 8;
             break;
     }
+    return len;
 }
 
 /*
@@ -195,38 +201,47 @@ void pack_integer(uint8_t **buf, int8_t type, int64_t val) {
  *     32 |    i        I
  *     64 |    q        Q
  */
-void unpack_integer(uint8_t **buf, int8_t type, int64_t *val) {
+size_t unpack_integer(uint8_t **buf, int8_t type, int64_t *val) {
+    size_t len = 0;
     switch (type) {
         case 'b':
         case 'B':
             *val = **buf;
             *buf += 1;
+            len = 1;
             break;
         case 'h':
             *val = unpacki16(*buf);
             *buf += 2;
+            len = 2;
             break;
         case 'H':
             *val = unpacku16(*buf);
             *buf += 2;
+            len = 2;
             break;
         case 'i':
             *val = unpacki32(*buf);
             *buf += 4;
+            len = 4;
             break;
         case 'I':
             *val = unpacku32(*buf);
             *buf += 4;
+            len = 4;
             break;
         case 'q':
             *val = unpacki64(*buf);
             *buf += 8;
+            len = 8;
             break;
         case 'Q':
             *val = unpacku64(*buf);
             *buf += 8;
+            len = 8;
             break;
     }
+    return len;
 }
 
 /*
@@ -235,10 +250,11 @@ void unpack_integer(uint8_t **buf, int8_t type, int64_t *val) {
  * (non-NULL) and that it's large enough to store all the content of the `buf`
  * anyway a nul char will be added at the end.
  */
-void unpack_bytes(uint8_t **buf, size_t len, uint8_t *dst) {
+size_t unpack_bytes(uint8_t **buf, size_t len, uint8_t *dst) {
     memcpy(dst, *buf, len);
     dst[len] = '\0';
     *buf += len;
+    return len;
 }
 
 /*

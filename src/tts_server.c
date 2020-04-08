@@ -78,6 +78,23 @@ static void on_connection(ev_tcp_handle *server) {
     }
 }
 
+static void ts_destroy(struct tts_timeseries *tss) {
+    struct tts_timeseries *ts, *tmp;
+    HASH_ITER(hh, tss, ts, tmp) {
+        TTS_VECTOR_DESTROY(ts->timestamps);
+        TTS_VECTOR_DESTROY(ts->fields);
+        struct tts_record *record = NULL;
+        for (size_t i = 0; i < TTS_VECTOR_SIZE(ts->columns); ++i) {
+            record = TTS_VECTOR_AT(ts->columns, i);
+            if (!record)
+                continue;
+            free(record->field);
+            free(record->value);
+            free(record);
+        }
+    }
+}
+
 int tts_start_server(const char *host, int port) {
     tts_server.db = malloc(sizeof(struct tts_database));
     tts_server.db->timeseries = NULL;
@@ -101,6 +118,7 @@ int tts_start_server(const char *host, int port) {
     // to stop the server with Ctrl+C
     ev_tcp_server_stop(&server);
 
+    ts_destroy(tts_server.db->timeseries);
     free(tts_server.db);
 
     return 0;

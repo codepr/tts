@@ -25,6 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define _POSIX_C_SOURCE 199309L
 #include <stdio.h>
 #include "tts_protocol.h"
 #include "tts_handlers.h"
