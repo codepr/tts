@@ -30,7 +30,7 @@
 #include "tts_handlers.h"
 
 static int handle_tts_create(struct tts_payload *payload) {
-    ev_tcp_handle *handle = payload->handle;
+    ev_buf *buf = payload->buf;
     struct tts_packet *packet = &payload->packet;
     struct tts_timeseries *ts = malloc(sizeof(*ts));
     TTS_TIMESERIES_INIT(ts, packet->create.ts_name, packet->create.fields_len);
@@ -44,13 +44,12 @@ static int handle_tts_create(struct tts_payload *payload) {
             .rc = TTS_OK
         }
     };
-    handle->buffer.size = pack_tts_packet(&response,
-                                          (uint8_t *) handle->buffer.buf);
+    buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
     return TTS_OK;
 }
 
 static int handle_tts_delete(struct tts_payload *payload) {
-    ev_tcp_handle *handle = payload->handle;
+    ev_buf *buf = payload->buf;
     struct tts_packet *packet = &payload->packet;
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->drop.ts_name;
@@ -65,13 +64,12 @@ static int handle_tts_delete(struct tts_payload *payload) {
         response.ack.rc = TTS_OK;
     else
         HASH_DEL(payload->tts_db->timeseries, ts);
-    handle->buffer.size =
-        pack_tts_packet(&response, (uint8_t *) handle->buffer.buf);
+    buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
     return TTS_OK;
 }
 
 static int handle_tts_addpoints(struct tts_payload *payload) {
-    ev_tcp_handle *handle = payload->handle;
+    ev_buf *buf = payload->buf;
     struct tts_packet *packet = &payload->packet;
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->addpoints.ts_name;
@@ -106,13 +104,12 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
             TTS_VECTOR_APPEND(ts->columns, records);
         }
     }
-    handle->buffer.size =
-        pack_tts_packet(&response, (uint8_t *) handle->buffer.buf);
+    buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
     return TTS_OK;
 }
 
 static int handle_tts_query(struct tts_payload *payload) {
-    ev_tcp_handle *handle = payload->handle;
+    ev_buf *buf = payload->buf;
     struct tts_packet *packet = &payload->packet;
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->query.ts_name;
@@ -125,8 +122,7 @@ static int handle_tts_query(struct tts_payload *payload) {
     };
     if (!ts) {
         response.ack.rc = TTS_NOK;
-        handle->buffer.size =
-            pack_tts_packet(&response, (uint8_t *) handle->buffer.buf);
+        buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
     } else {
         response.header.byte = TTS_QUERY_RESPONSE;
         struct tts_query_ack *qa = &response.query_ack;
@@ -152,8 +148,7 @@ static int handle_tts_query(struct tts_payload *payload) {
                     qa->results[i].points[j].value = record[j].value;
                 }
             }
-            handle->buffer.size =
-                pack_tts_packet(&response, (uint8_t *) handle->buffer.buf);
+            buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
         } else {
             size_t ts_size = TTS_VECTOR_SIZE(ts->timestamps) - 1;
             unsigned long long major_of = TTS_VECTOR_AT(ts->timestamps, 0);
@@ -268,8 +263,7 @@ static int handle_tts_query(struct tts_payload *payload) {
                     }
                 }
             }
-            handle->buffer.size =
-                pack_tts_packet(&response, (uint8_t *) handle->buffer.buf);
+            buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
         }
     }
     return TTS_OK;

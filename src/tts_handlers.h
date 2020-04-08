@@ -40,7 +40,7 @@ struct tts_server;
  */
 struct tts_payload {
     struct tts_packet packet;
-    ev_tcp_handle *handle;
+    ev_buf *buf;
     struct tts_database *tts_db;
 };
 
