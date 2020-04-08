@@ -25,6 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define _GNU_SOURCE
 #include <ctype.h>
 #include <errno.h>
 #include <netdb.h>
@@ -36,7 +37,9 @@
 #include "tts_protocol.h"
 #include "tts_client.h"
 
-#define COMMANDS_NR 4
+#define COMMANDS_NR         4
+#define TTS_CLIENT_SUCCES   0
+#define TTS_CLIENT_FAILURE -1
 
 typedef int (*tts_cmd_handler)(char *, struct tts_packet *);
 
@@ -76,6 +79,15 @@ static inline unsigned get_digits(unsigned long long n) {
         n /= 10;
     } while (n != 0);
     return count;
+}
+
+static inline long long read_number(char *str) {
+    char *nul = NULL;
+    long long n = strtol(str, &nul, 10);
+    if (*nul != '\0' || nul == str ||
+        (get_digits(n) < 10 && get_digits(n) > 13))
+        return TTS_CLIENT_FAILURE;
+    return n;
 }
 
 static int tts_handle_new(char *line, struct tts_packet *tts_p) {
@@ -128,6 +140,23 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
             calloc(vsize, sizeof(*points->points[i].values));
         j = 0;
         vals = strtok_r(token, " ", &end_val);
+        if (strcmp(vals, "*") == 0) {
+            points->points[i].ts_flags.bits.ts_sec_set = 0;
+            points->points[i].ts_flags.bits.ts_nsec_set = 0;
+        } else {
+            struct timespec tspec;
+            clock_gettime(CLOCK_REALTIME, &tspec);
+            unsigned long long n = read_number(vals);
+            int len = get_digits(n);
+            points->points[i].ts_flags.bits.ts_sec_set = 1;
+            points->points[i].ts_flags.bits.ts_nsec_set = 1;
+            if (len == 10)
+                points->points[i].ts_sec = n;
+            else if (len == 13)
+                points->points[i].ts_sec = n / 1e3;
+            points->points[i].ts_nsec = tspec.tv_nsec;
+        }
+        vals = strtok_r(NULL, " ", &end_val);
         do {
             if (j == vsize - 1) {
                 vsize *= 2;
@@ -150,8 +179,6 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
             j++;
         } while ((vals = strtok_r(NULL, " ", &end_val)));
         points->points_len++;
-        points->points[i].ts_flags.bits.ts_sec_set = 0;
-        points->points[i].ts_flags.bits.ts_nsec_set = 0;
     }
     return 0;
 }
@@ -176,7 +203,7 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
         } else if (strcmp(token, "<") == 0) {
             tts_p->query.bits.minor_of = 1;
             token = strtok(NULL, " ");
-            tts_p->query.minor_of = atoi(token);
+            tts_p->query.minor_of = atol(token);
             if (get_digits(tts_p->query.minor_of) <= 10)
                 tts_p->query.minor_of *= 1e9;
         } else if (strcasecmp(token, "range") == 0) {
