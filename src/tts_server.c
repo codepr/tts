@@ -81,17 +81,19 @@ static void on_connection(ev_tcp_handle *server) {
 static void ts_destroy(struct tts_timeseries *tss) {
     struct tts_timeseries *ts, *tmp;
     HASH_ITER(hh, tss, ts, tmp) {
+        HASH_DEL(tss, ts);
         TTS_VECTOR_DESTROY(ts->timestamps);
-        TTS_VECTOR_DESTROY(ts->fields);
-        struct tts_record *record = NULL;
+        struct tts_record *records = NULL;
         for (size_t i = 0; i < TTS_VECTOR_SIZE(ts->columns); ++i) {
-            record = TTS_VECTOR_AT(ts->columns, i);
-            if (!record)
-                continue;
-            free(record->field);
-            free(record->value);
-            free(record);
+            records = TTS_VECTOR_AT(ts->columns, i);
+            for (size_t j = 0; j < ts->fields_nr; ++j) {
+                free(records[j].field);
+                free(records[j].value);
+            }
+            free(records);
         }
+        TTS_VECTOR_DESTROY(ts->columns);
+        free(ts);
     }
 }
 

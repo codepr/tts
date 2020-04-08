@@ -61,7 +61,6 @@ struct tts_timeseries {
     size_t fields_nr;
     char name[TTS_TS_NAME_MAX_LENGTH];
     TTS_VECTOR(unsigned long long) timestamps;
-    TTS_VECTOR(char *) fields;
     TTS_VECTOR(struct tts_record *) columns;
     UT_hash_handle hh;
 };
@@ -100,7 +99,6 @@ static inline int timespec_compare(const struct timespec *t1,
 #define TTS_TIMESERIES_INIT(ts, ts_name, nr) do {                   \
     (ts)->fields_nr = (nr);                                         \
     snprintf((ts)->name, TTS_TS_NAME_MAX_LENGTH, "%s", (ts_name));  \
-    TTS_VECTOR_NEW((ts)->fields);                                   \
     TTS_VECTOR_NEW((ts)->timestamps);                               \
     TTS_VECTOR_NEW((ts)->columns);                                  \
 } while (0)
