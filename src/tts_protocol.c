@@ -396,7 +396,7 @@ static ssize_t pack_tts_ack(const struct tts_ack *ack, uint8_t *buf) {
     return pack(buf, "IB", 1, ack->rc);
 }
 
-ssize_t pack_tts_query_ack(const struct tts_query_ack *qa, uint8_t *buf) {
+ssize_t pack_tts_query_response(const struct tts_query_ack *qa, uint8_t *buf) {
     size_t len = 0LL;
     size_t packed = 0LL;
     uint8_t *ptr = buf + sizeof(uint32_t);
@@ -439,7 +439,7 @@ ssize_t pack_tts_packet(const struct tts_packet *tts_p, uint8_t *buf) {
             len += pack_tts_ack(&tts_p->ack, buf);
             break;
         case TTS_QUERY_RESPONSE:
-            len += pack_tts_query_ack(&tts_p->query_ack, buf);
+            len += pack_tts_query_response(&tts_p->query_ack, buf);
             break;
     }
     return len;
