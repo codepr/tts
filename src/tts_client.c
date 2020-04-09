@@ -152,8 +152,6 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
             points->points[i].ts_flags.bits.ts_sec_set = 0;
             points->points[i].ts_flags.bits.ts_nsec_set = 0;
         } else {
-            struct timespec tspec;
-            clock_gettime(CLOCK_REALTIME, &tspec);
             unsigned long long n = read_number(vals);
             int len = get_digits(n);
             points->points[i].ts_flags.bits.ts_sec_set = 1;
@@ -162,7 +160,7 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
                 points->points[i].ts_sec = n;
             else if (len == 13)
                 points->points[i].ts_sec = n / 1e3;
-            points->points[i].ts_nsec = tspec.tv_nsec;
+            points->points[i].ts_nsec = 0;
         }
         vals = strtok_r(NULL, " ", &end_val);
         points->points[i].value = read_real(vals);

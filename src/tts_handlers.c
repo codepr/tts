@@ -232,6 +232,48 @@ static void handle_tts_query_mean(const struct tts_timeseries *ts,
     free(q->results);
 }
 
+//static void handle_tts_query_meanp(const struct tts_timeseries *ts,
+//                                   struct tts_packet *p,
+//                                   size_t lo, size_t hi,
+//                                   unsigned long long start,
+//                                   unsigned long long window,
+//                                   ev_buf *buf) {
+//    struct tts_query_ack *q = &p->query_ack;
+//    long double avg = 0.0;
+//    unsigned long long step = 0LL, base = 0LL;
+//    struct tts_record *record = NULL;
+//    q->results = NULL;
+//    size_t i = lo, j = 0, k = 0;
+//    start *= 1e6; window *= 1e6;
+//    while (TTS_VECTOR_AT(ts->timestamps, lo) > start) {
+//        if (start + window > TTS_VECTOR_AT(ts->timestamps, lo))
+//            break;
+//        start += window;
+//    }
+//    base = start;
+//    while (i < hi) {
+//        q->results = realloc(q->results, (k + 1) * sizeof(*q->results));
+//        j = 0;
+//        step = base + window;
+//        avg = 0;
+//        for (;TTS_VECTOR_AT(ts->timestamps, i) <= step; ++i) {
+//            record = TTS_VECTOR_AT(ts->columns, i);
+//            avg += record->value;
+//            ++j;
+//        }
+//        avg /= j;
+//        q->results[k].res_len = 0;
+//        q->results[k].rc = TTS_OK;
+//        q->results[k].ts_sec = step / (unsigned long long) 1e9;
+//        q->results[k].ts_nsec = step % (unsigned long long) 1e9;
+//        q->results[k].value = avg;
+//        ++k;
+//        ++q->len;
+//    }
+//    buf->size = pack_tts_packet(p, (uint8_t *) buf->buf);
+//    free(q->results);
+//}
+
 static int handle_tts_query(struct tts_payload *payload) {
     ev_buf *buf = payload->buf;
     struct tts_packet *packet = &payload->packet;
@@ -277,6 +319,8 @@ static int handle_tts_query(struct tts_payload *payload) {
                 } else {
                     size_t lo_idx = 0UL, hi_idx = 0UL;
                     get_range_indexes(ts, minor_of, major_of, &lo_idx, &hi_idx);
+                    //handle_tts_query_meanp(ts, &response, lo_idx, hi_idx,
+                    //                       major_of, packet->query.mean_val, buf);
                     handle_tts_query_mean(ts, &response, lo_idx, hi_idx,
                                           packet->query.mean_val, buf);
                 }
