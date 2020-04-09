@@ -147,6 +147,22 @@ static void handle_tts_query_all(const struct tts_timeseries *ts,
     free(q->results);
 }
 
+static void get_range_indexes(const struct tts_timeseries *ts,
+                              size_t minor_of, size_t major_of,
+                              size_t *lo_idx, size_t *hi_idx) {
+    TTS_VECTOR_BINSEARCH(ts->timestamps, major_of, lo_idx);
+    TTS_VECTOR_BINSEARCH(ts->timestamps, minor_of, hi_idx);
+    // Update range to include neighbour values
+    for (size_t i = *lo_idx - 1; i > 0 &&
+         TTS_VECTOR_AT(ts->timestamps, i) >= major_of; --i) {
+        --*lo_idx;
+    }
+    for (size_t i = *hi_idx + 1; i < TTS_VECTOR_SIZE(ts->timestamps) &&
+         TTS_VECTOR_AT(ts->timestamps, i) <= minor_of; ++i) {
+        ++*hi_idx;
+    }
+}
+
 static void handle_tts_query_range(const struct tts_timeseries *ts,
                                    struct tts_packet *p,
                                    size_t minor_of,
@@ -154,19 +170,20 @@ static void handle_tts_query_range(const struct tts_timeseries *ts,
                                    ev_buf *buf) {
     size_t lo_idx = 0UL, hi_idx = 0UL;
     struct tts_query_ack *q = &p->query_ack;
-    TTS_VECTOR_BINSEARCH(ts->timestamps, major_of, &lo_idx);
-    TTS_VECTOR_BINSEARCH(ts->timestamps, minor_of, &hi_idx);
-    // Update range to include neighbour values
-    for (size_t i = lo_idx - 1; i > 0 &&
-         TTS_VECTOR_AT(ts->timestamps, i) >= major_of;
-         --i) {
-        --lo_idx;
-    }
-    for (size_t i = hi_idx + 1; i < TTS_VECTOR_SIZE(ts->timestamps) &&
-         TTS_VECTOR_AT(ts->timestamps, i) <= minor_of;
-         ++i) {
-        ++hi_idx;
-    }
+    get_range_indexes(ts, minor_of, major_of, &lo_idx, &hi_idx);
+    //TTS_VECTOR_BINSEARCH(ts->timestamps, major_of, &lo_idx);
+    //TTS_VECTOR_BINSEARCH(ts->timestamps, minor_of, &hi_idx);
+    //// Update range to include neighbour values
+    //for (size_t i = lo_idx - 1; i > 0 &&
+    //     TTS_VECTOR_AT(ts->timestamps, i) >= major_of;
+    //     --i) {
+    //    --lo_idx;
+    //}
+    //for (size_t i = hi_idx + 1; i < TTS_VECTOR_SIZE(ts->timestamps) &&
+    //     TTS_VECTOR_AT(ts->timestamps, i) <= minor_of;
+    //     ++i) {
+    //    ++hi_idx;
+    //}
     unsigned long long range = hi_idx - lo_idx + 1;
     q->results = calloc(range, sizeof(*q->results));
     q->len = range;
@@ -193,6 +210,41 @@ static void handle_tts_query_one(const struct tts_timeseries *ts,
     free(q->results);
 }
 
+static void handle_tts_query_mean(const struct tts_timeseries *ts,
+                                  struct tts_packet *p,
+                                  size_t lo, size_t hi,
+                                  unsigned long long window,
+                                  ev_buf *buf) {
+    struct tts_query_ack *q = &p->query_ack;
+    long double avg = 0.0;
+    unsigned long long t = 0ULL, step = 0LL;
+    struct tts_record *record = NULL;
+    q->results = NULL;
+    size_t i = lo, j = 0, k = 0;
+    while (i < hi) {
+        q->results = realloc(q->results, (k + 1) * sizeof(*q->results));
+        j = 0;
+        step = TTS_VECTOR_AT(ts->timestamps, i) + window * 1e6;
+        avg = 0;
+        for (;TTS_VECTOR_AT(ts->timestamps, i) <= step; ++i) {
+            t = TTS_VECTOR_AT(ts->timestamps, i);
+            record = TTS_VECTOR_AT(ts->columns, i);
+            avg += record->value;
+            ++j;
+        }
+        avg /= j;
+        q->results[k].res_len = 0;
+        q->results[k].rc = TTS_OK;
+        q->results[k].ts_sec = t / (unsigned long long) 1e9;
+        q->results[k].ts_nsec = t % (unsigned long long) 1e9;
+        q->results[k].value = avg;
+        ++k;
+        ++q->len;
+    }
+    buf->size = pack_tts_packet(p, (uint8_t *) buf->buf);
+    free(q->results);
+}
+
 static int handle_tts_query(struct tts_payload *payload) {
     ev_buf *buf = payload->buf;
     struct tts_packet *packet = &payload->packet;
@@ -210,14 +262,17 @@ static int handle_tts_query(struct tts_payload *payload) {
         buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
     } else {
         response.header.byte = TTS_QUERY_RESPONSE;
-        //struct tts_query_ack *qa = &response.query_ack;
-        if (packet->query.byte == TTS_QUERY_ALL_TIMESERIES) {
-            handle_tts_query_all(ts, &response, buf);
+        if (packet->query.byte == TTS_QUERY_ALL_TIMESERIES ||
+            packet->query.byte == TTS_QUERY_ALL_TIMESERIES_AVG) {
+            if (packet->query.bits.mean == 0) {
+                handle_tts_query_all(ts, &response, buf);
+            } else {
+                size_t hi = TTS_VECTOR_SIZE(ts->timestamps);
+                handle_tts_query_mean(ts, &response, 0, hi,
+                                      packet->query.mean_val, buf);
+            }
         } else {
             size_t ts_size = TTS_VECTOR_SIZE(ts->timestamps) - 1;
-            size_t res_nr = 0;
-            (void) res_nr;
-            //size_t points_nr = 0;
             unsigned long long major_of = TTS_VECTOR_AT(ts->timestamps, 0);
             unsigned long long minor_of = TTS_VECTOR_AT(ts->timestamps, ts_size);
             if (packet->query.bits.first == 1) {
@@ -230,7 +285,14 @@ static int handle_tts_query(struct tts_payload *payload) {
                     major_of = packet->query.major_of;
                 if (packet->query.bits.minor_of == 1)
                     minor_of = packet->query.minor_of;
-                handle_tts_query_range(ts, &response, minor_of, major_of, buf);
+                if (packet->query.bits.mean == 0) {
+                    handle_tts_query_range(ts, &response, minor_of, major_of, buf);
+                } else {
+                    size_t lo_idx = 0UL, hi_idx = 0UL;
+                    get_range_indexes(ts, minor_of, major_of, &lo_idx, &hi_idx);
+                    handle_tts_query_mean(ts, &response, lo_idx, hi_idx,
+                                          packet->query.mean_val, buf);
+                }
             }
             //if (packet->query.bits.mean == 1) {
             //    if (packet->query.bits.mean_field == 1) {

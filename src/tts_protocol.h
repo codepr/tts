@@ -43,7 +43,8 @@
 #define TTS_ACK            0x04
 #define TTS_QUERY_RESPONSE 0x05
 
-#define TTS_QUERY_ALL_TIMESERIES 0x00
+#define TTS_QUERY_ALL_TIMESERIES     0x00
+#define TTS_QUERY_ALL_TIMESERIES_AVG 0x01
 
 /* First two mandatory fields on each command */
 #define TS_NAME_FIELD    \
@@ -167,8 +168,8 @@ struct tts_query_ack {
         uint8_t rc;
         uint64_t ts_sec;
         uint64_t ts_nsec;
-        uint16_t res_len;
         long double value;
+        uint16_t res_len;
         struct {
             uint16_t label_len;
             uint8_t *label;
