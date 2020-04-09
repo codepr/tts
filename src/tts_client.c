@@ -97,15 +97,15 @@ static int tts_handle_new(char *line, struct tts_packet *tts_p) {
     create->ts_name_len = strlen(token);
     create->ts_name = malloc(create->ts_name_len + 1);
     snprintf((char *) create->ts_name, create->ts_name_len + 1, "%s", token);
-    for (int j = 0; (token = strtok(NULL, " ")); ++j) {
-        create->fields = realloc(create->fields,
-                                 (j + 1) * sizeof(*create->fields));
-        create->fields[j].field_len = strlen(token);
-        create->fields[j].field = malloc(create->fields[j].field_len + 1);
-        snprintf((char *) create->fields[j].field,
-                 create->fields[j].field_len + 1, "%s", token);
-        create->fields_len++;
-    }
+    //for (int j = 0; (token = strtok(NULL, " ")); ++j) {
+    //    create->fields = realloc(create->fields,
+    //                             (j + 1) * sizeof(*create->fields));
+    //    create->fields[j].field_len = strlen(token);
+    //    create->fields[j].field = malloc(create->fields[j].field_len + 1);
+    //    snprintf((char *) create->fields[j].field,
+    //             create->fields[j].field_len + 1, "%s", token);
+    //    create->fields_len++;
+    //}
     return 0;
 }
 
@@ -136,8 +136,8 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
                 realloc(points->points, psize * sizeof(*points->points));
         }
         vsize = 4;
-        points->points[i].values =
-            calloc(vsize, sizeof(*points->points[i].values));
+        points->points[i].labels =
+            calloc(vsize, sizeof(*points->points[i].labels));
         j = 0;
         vals = strtok_r(token, " ", &end_val);
         if (strcmp(vals, "*") == 0) {
@@ -157,25 +157,27 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
             points->points[i].ts_nsec = tspec.tv_nsec;
         }
         vals = strtok_r(NULL, " ", &end_val);
+        points->points[i].value = atoll(vals);
+        vals = strtok_r(NULL, " ", &end_val);
         do {
             if (j == vsize - 1) {
                 vsize *= 2;
-                points->points[i].values =
-                    realloc(points->points[i].values,
-                            vsize * sizeof(*points->points[i].values));
+                points->points[i].labels =
+                    realloc(points->points[i].labels,
+                            vsize * sizeof(*points->points[i].labels));
             }
-            points->points[i].values[j].field_len = strlen(vals);
-            points->points[i].values[j].field =
-                malloc(points->points[i].values[j].field_len + 1);
-            snprintf((char *) points->points[i].values[j].field,
-                     points->points[i].values[j].field_len + 1, "%s", vals);
+            points->points[i].labels[j].label_len = strlen(vals);
+            points->points[i].labels[j].label =
+                malloc(points->points[i].labels[j].label_len + 1);
+            snprintf((char *) points->points[i].labels[j].label,
+                     points->points[i].labels[j].label_len + 1, "%s", vals);
             vals = strtok_r(NULL, " ", &end_val);
-            points->points[i].values[j].value_len = strlen(vals);
-            points->points[i].values[j].value =
-                malloc(points->points[i].values[j].value_len + 1);
-            snprintf((char *) points->points[i].values[j].value,
-                     points->points[i].values[j].value_len + 1, "%s", vals);
-            points->points[i].values_len++;
+            points->points[i].labels[j].value_len = strlen(vals);
+            points->points[i].labels[j].value =
+                malloc(points->points[i].labels[j].value_len + 1);
+            snprintf((char *) points->points[i].labels[j].value,
+                     points->points[i].labels[j].value_len + 1, "%s", vals);
+            points->points[i].labels_len++;
             j++;
         } while ((vals = strtok_r(NULL, " ", &end_val)));
         points->points_len++;
@@ -197,7 +199,7 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
         if (strcmp(token, ">") == 0) {
             tts_p->query.bits.major_of = 1;
             token = strtok(NULL, " ");
-            tts_p->query.major_of = atoi(token);
+            tts_p->query.major_of = atoll(token);
             if (get_digits(tts_p->query.major_of) <= 10)
                 tts_p->query.major_of *= 1e9;
         } else if (strcmp(token, "<") == 0) {
@@ -210,9 +212,9 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
             tts_p->query.bits.minor_of = 1;
             tts_p->query.bits.major_of = 1;
             token = strtok(NULL, " ");
-            tts_p->query.major_of = atoi(token);
+            tts_p->query.major_of = atoll(token);
             token = strtok(NULL, " ");
-            tts_p->query.minor_of = atoi(token);
+            tts_p->query.minor_of = atoll(token);
             if (get_digits(tts_p->query.minor_of) <= 10)
                 tts_p->query.minor_of *= 1e9;
             if (get_digits(tts_p->query.major_of) <= 10)
@@ -233,7 +235,7 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
             snprintf((char *) tts_p->query.mean_field,
                      strlen(token) + 1, "%s", token);
             token = strtok(NULL, " ");
-            tts_p->query.mean_val = atoi(token);
+            tts_p->query.mean_val = atoll(token);
             tts_p->query.bits.mean = 1;
             tts_p->query.bits.mean_field = 1;
         }

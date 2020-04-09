@@ -256,27 +256,27 @@ size_t pack_integer(uint8_t **buf, int8_t type, int64_t val) {
 
 size_t pack_real(uint8_t **buf, int8_t type, long double val) {
     size_t size = 0;
-    uintmax_t fhold;
+    unsigned long long int fhold;
     switch (type) {
         case 'f': // float-16
             fhold = pack754_16(val); // convert to IEEE 754
             packi16(*buf, fhold);
-            buf += 2;
+            *buf += 2;
             size += 2;
             break;
 
         case 'd': // float-32
             fhold = pack754_32(val); // convert to IEEE 754
             packi32(*buf, fhold);
-            buf += 4;
+            *buf += 4;
             size += 4;
             break;
 
         case 'g': // float-64
             fhold = pack754_64(val); // convert to IEEE 754
             packi64(*buf, fhold);
-            buf += 8;
-            size += 8;
+            *buf += 16;
+            size += 16;
             break;
     }
     return size;
@@ -339,27 +339,27 @@ size_t unpack_integer(uint8_t **buf, int8_t type, int64_t *val) {
 
 size_t unpack_real(uint8_t **buf, int8_t type, long double *val) {
     size_t size = 0;
-    uintmax_t fhold;
+    unsigned long long int fhold;
     switch (type) {
         case 'f': // float
             fhold = unpacku16(*buf);
             *val = unpack754_16(fhold);
-            buf += 2;
+            *buf += 2;
             size += 2;
             break;
 
         case 'd': // float-32
             fhold = unpacku32(*buf);
             *val = unpack754_32(fhold);
-            buf += 4;
+            *buf += 4;
             size += 4;
             break;
 
         case 'g': // float-64
             fhold = unpacku64(*buf);
             *val = unpack754_64(fhold);
-            buf += 8;
-            size += 8;
+            *buf += 16;
+            size += 16;
             break;
     }
     return size;
@@ -410,7 +410,7 @@ uint64_t unpack(uint8_t *buf, char *format, ...) {
     float *f;                    // floats
     double *d;
     long double *g;
-    uintmax_t fhold;
+    unsigned long long int fhold;
 
     char *s;
     uint64_t maxstrlen = 0, size = 0;
@@ -497,8 +497,8 @@ uint64_t unpack(uint8_t *buf, char *format, ...) {
                 g = va_arg(ap, long double *);
                 fhold = unpacku64(buf);
                 *g = unpack754_64(fhold);
-                buf += 8;
-                size += 8;
+                buf += 16;
+                size += 16;
                 break;
 
             case 's': // string
@@ -554,7 +554,7 @@ uint64_t pack(uint8_t *buf, char *format, ...) {
     float f;                    // floats
     double d;
     long double g;
-    uintmax_t fhold;
+    unsigned long long int fhold;
 
     char *s;                    // strings
     uint64_t len, size = 0;
@@ -634,11 +634,11 @@ uint64_t pack(uint8_t *buf, char *format, ...) {
                 break;
 
             case 'g': // float-64
-                size += 8;
+                size += 16;
                 g = va_arg(ap, long double);
                 fhold = pack754_64(g); // convert to IEEE 754
                 packi64(buf, fhold);
-                buf += 8;
+                buf += 16;
                 break;
 
             case 's': // string

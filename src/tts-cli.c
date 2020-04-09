@@ -49,11 +49,11 @@ static void print_tts_response(const struct tts_packet *tts_p) {
         for (size_t i = 0; i < tts_p->query_ack.len; ++i) {
             ts = tts_p->query_ack.results[i].ts_sec * 1e9 + \
                  tts_p->query_ack.results[i].ts_nsec;
-            printf("%llu ", ts);
+            printf("%llu %.4Lf ", ts, tts_p->query_ack.results[i].value);
             for (size_t j = 0; j < tts_p->query_ack.results[i].res_len; ++j) {
                 printf("%s %s ",
-                       tts_p->query_ack.results[i].points[j].field,
-                       tts_p->query_ack.results[i].points[j].value);
+                       tts_p->query_ack.results[i].labels[j].label,
+                       tts_p->query_ack.results[i].labels[j].value);
             }
             printf("\n");
         }

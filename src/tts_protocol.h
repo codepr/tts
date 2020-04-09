@@ -64,11 +64,11 @@ struct tts_header {
  */
 struct tts_create {
     TS_NAME_FIELD
-    uint16_t fields_len;
-    struct {
-        uint16_t field_len;
-        uint8_t *field;
-    } *fields;
+    //uint16_t fields_len;
+    //struct {
+    //    uint16_t field_len;
+    //    uint8_t *field;
+    //} *fields;
 };
 
 /*
@@ -98,15 +98,16 @@ struct tts_addpoints {
                 uint8_t reserved : 6;
             } bits;
         } ts_flags;
+        long double value;
         uint64_t ts_sec;
         uint64_t ts_nsec;
-        uint16_t values_len;
+        uint16_t labels_len;
         struct {
-            uint16_t field_len;
-            uint8_t *field;
+            uint16_t label_len;
+            uint8_t *label;
             uint16_t value_len;
             uint8_t *value;
-        } *values;
+        } *labels;
     } *points;
 };
 
@@ -167,12 +168,13 @@ struct tts_query_ack {
         uint64_t ts_sec;
         uint64_t ts_nsec;
         uint16_t res_len;
+        long double value;
         struct {
-            uint16_t field_len;
-            uint8_t *field;
+            uint16_t label_len;
+            uint8_t *label;
             uint16_t value_len;
             uint8_t *value;
-        } *points;
+        } *labels;
     } *results;
 };
 

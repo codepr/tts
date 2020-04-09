@@ -32,7 +32,9 @@
 #include <stdint.h>
 
 size_t pack_integer(uint8_t **, int8_t, int64_t);
+size_t pack_real(uint8_t **, int8_t, long double);
 size_t unpack_integer(uint8_t **, int8_t, int64_t *);
+size_t unpack_real(uint8_t **, int8_t, long double *);
 size_t unpack_bytes(uint8_t **, size_t, uint8_t *);
 uint64_t unpack(uint8_t *, char *, ...);
 uint64_t pack(uint8_t *, char *, ...);

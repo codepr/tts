@@ -41,8 +41,12 @@
  * column
  */
 struct tts_record {
-    char *field;
-    void *value;
+    long double value;
+    unsigned char labels_nr;
+    struct {
+        char *field;
+        void *value;
+    } *labels;
 };
 
 /*
@@ -96,8 +100,7 @@ static inline int timespec_compare(const struct timespec *t1,
     return -1;
 }
 
-#define TTS_TIMESERIES_INIT(ts, ts_name, nr) do {                   \
-    (ts)->fields_nr = (nr);                                         \
+#define TTS_TIMESERIES_INIT(ts, ts_name) do {                       \
     snprintf((ts)->name, TTS_TS_NAME_MAX_LENGTH, "%s", (ts_name));  \
     TTS_VECTOR_NEW((ts)->timestamps);                               \
     TTS_VECTOR_NEW((ts)->columns);                                  \

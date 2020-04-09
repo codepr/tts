@@ -84,14 +84,13 @@ static void ts_destroy(struct tts_timeseries *tss) {
     HASH_ITER(hh, tss, ts, tmp) {
         HASH_DEL(tss, ts);
         TTS_VECTOR_DESTROY(ts->timestamps);
-        struct tts_record *records = NULL;
+        struct tts_record *record = NULL;
         for (size_t i = 0; i < TTS_VECTOR_SIZE(ts->columns); ++i) {
-            records = TTS_VECTOR_AT(ts->columns, i);
-            for (size_t j = 0; j < ts->fields_nr; ++j) {
-                free(records[j].field);
-                free(records[j].value);
+            record = TTS_VECTOR_AT(ts->columns, i);
+            for (size_t j = 0; j < record->labels_nr; ++j) {
+                free(record->labels[j].field);
             }
-            free(records);
+            free(record);
         }
         TTS_VECTOR_DESTROY(ts->columns);
         free(ts);

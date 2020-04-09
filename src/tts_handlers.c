@@ -34,7 +34,7 @@ static int handle_tts_create(struct tts_payload *payload) {
     ev_buf *buf = payload->buf;
     struct tts_packet *packet = &payload->packet;
     struct tts_timeseries *ts = malloc(sizeof(*ts));
-    TTS_TIMESERIES_INIT(ts, packet->create.ts_name, packet->create.fields_len);
+    TTS_TIMESERIES_INIT(ts, packet->create.ts_name);
     //for (int i = 0; i < packet->create.fields_len; i++)
     //    TTS_VECTOR_APPEND(ts->fields, (char *) packet->create.fields[i].field);
     // add to db hashmap
@@ -71,9 +71,9 @@ static int handle_tts_delete(struct tts_payload *payload) {
 
 static int handle_tts_addpoints(struct tts_payload *payload) {
     ev_buf *buf = payload->buf;
-    struct tts_packet *packet = &payload->packet;
+    struct tts_addpoints *pa = &payload->packet.addpoints;
     struct tts_timeseries *ts = NULL;
-    char *key = (char *) packet->addpoints.ts_name;
+    char *key = (char *) pa->ts_name;
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
     struct tts_packet response = {
         .header.byte = TTS_ACK,
@@ -86,23 +86,26 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
     } else {
         struct timespec tv;
         clock_gettime(CLOCK_REALTIME, &tv);
-        for (int i = 0; i < packet->addpoints.points_len; i++) {
-            if (packet->addpoints.points[i].ts_flags.bits.ts_sec_set == 0)
-                packet->addpoints.points[i].ts_sec = tv.tv_sec;
-            if (packet->addpoints.points[i].ts_flags.bits.ts_nsec_set == 0)
-                packet->addpoints.points[i].ts_nsec = tv.tv_nsec;
+        for (int i = 0; i < pa->points_len; i++) {
+            if (pa->points[i].ts_flags.bits.ts_sec_set == 0)
+                pa->points[i].ts_sec = tv.tv_sec;
+            if (pa->points[i].ts_flags.bits.ts_nsec_set == 0)
+                pa->points[i].ts_nsec = tv.tv_nsec;
             unsigned long long timestamp =
-                packet->addpoints.points[i].ts_sec * 1e9 +
-                packet->addpoints.points[i].ts_nsec;
+                pa->points[i].ts_sec * 1e9 +
+                pa->points[i].ts_nsec;
             TTS_VECTOR_APPEND(ts->timestamps, timestamp);
-            struct tts_record *records =
-                malloc(ts->fields_nr * sizeof(struct tts_record));
-            for (int j = 0; j < packet->addpoints.points[i].values_len; ++j) {
-                records[j].field =
-                    (char *) packet->addpoints.points[i].values[j].field;
-                records[j].value = packet->addpoints.points[i].values[j].value;
+            struct tts_record *record = malloc(sizeof(*record));
+            record->value = pa->points[i].value;
+            record->labels_nr = pa->points[i].labels_len;
+            record->labels = calloc(pa->points[i].labels_len,
+                                    sizeof(*record->labels));
+            for (int j = 0; j < pa->points[i].labels_len; ++j) {
+                record->labels[j].field =
+                    (char *) pa->points[i].labels[j].label;
+                record->labels[j].value = pa->points[i].labels[j].value;
             }
-            TTS_VECTOR_APPEND(ts->columns, records);
+            TTS_VECTOR_APPEND(ts->columns, record);
         }
     }
     buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
@@ -117,14 +120,15 @@ static void handle_tts_query_single(const struct tts_timeseries *ts,
     q->results[r_idx].rc = TTS_OK;
     q->results[r_idx].ts_sec = t / (unsigned long long) 1e9;
     q->results[r_idx].ts_nsec = t % (unsigned long long) 1e9;
-    q->results[r_idx].res_len = ts->fields_nr;
-    q->results[r_idx].points =
-        calloc(ts->fields_nr, sizeof(*q->results[r_idx].points));
-    for (size_t j = 0; j < ts->fields_nr; ++j) {
-        q->results[r_idx].points[j].field_len = strlen(record[j].field);
-        q->results[r_idx].points[j].field = (uint8_t *) record[j].field;
-        q->results[r_idx].points[j].value_len = strlen(record[j].value);
-        q->results[r_idx].points[j].value = record[j].value;
+    q->results[r_idx].value = record->value;
+    q->results[r_idx].res_len = record->labels_nr;
+    q->results[r_idx].labels =
+        calloc(record->labels_nr, sizeof(*q->results[r_idx].labels));
+    for (size_t j = 0; j < record->labels_nr; ++j) {
+        q->results[r_idx].labels[j].label_len = strlen(record->labels[j].field);
+        q->results[r_idx].labels[j].label = (uint8_t *) record->labels[j].field;
+        q->results[r_idx].labels[j].value_len = strlen(record->labels[j].value);
+        q->results[r_idx].labels[j].value = record->labels[j].value;
     }
 }
 
@@ -139,7 +143,7 @@ static void handle_tts_query_all(const struct tts_timeseries *ts,
         handle_tts_query_single(ts, q, i, i);
     buf->size = pack_tts_packet(p, (uint8_t *) buf->buf);
     for (size_t i = 0; i < colsize; ++i)
-        free(q->results[i].points);
+        free(q->results[i].labels);
     free(q->results);
 }
 
@@ -170,7 +174,7 @@ static void handle_tts_query_range(const struct tts_timeseries *ts,
         handle_tts_query_single(ts, q, i, i + lo_idx);
     buf->size = pack_tts_packet(p, (uint8_t *) buf->buf);
     for (size_t i = 0; i < range; ++i)
-        free(q->results[i].points);
+        free(q->results[i].labels);
     free(q->results);
 }
 
@@ -185,7 +189,7 @@ static void handle_tts_query_one(const struct tts_timeseries *ts,
     handle_tts_query_single(ts, q, 0, idx);
     buf->size = pack_tts_packet(p, (uint8_t *) buf->buf);
     for (size_t i = 0; i < colsize; ++i)
-        free(q->results[i].points);
+        free(q->results[i].labels);
     free(q->results);
 }
 
