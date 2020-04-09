@@ -147,6 +147,71 @@ int64_t unpacki64(uint8_t *buf) {
 }
 
 /*
+ * Thanks beej.us guide, check https://beej.us/guide/bgnet/html for more useful
+ * informations
+ */
+
+#define pack754_16(f) (pack754((f), 16, 8))
+#define pack754_32(f) (pack754((f), 32, 8))
+#define pack754_64(f) (pack754((f), 64, 11))
+#define unpack754_16(i) (unpack754((i), 16, 8))
+#define unpack754_32(i) (unpack754((i), 32, 8))
+#define unpack754_64(i) (unpack754((i), 64, 11))
+
+uint64_t pack754(long double f, unsigned bits, unsigned expbits) {
+    long double fnorm;
+    int shift;
+    long long sign, exp, significand;
+    unsigned significandbits = bits - expbits - 1; // -1 for sign bit
+
+    if (f == 0.0) return 0; // get this special case out of the way
+
+    // check sign and begin normalization
+    if (f < 0) { sign = 1; fnorm = -f; }
+    else { sign = 0; fnorm = f; }
+
+    // get the normalized form of f and track the exponent
+    shift = 0;
+    while (fnorm >= 2.0) { fnorm /= 2.0; shift++; }
+    while (fnorm < 1.0) { fnorm *= 2.0; shift--; }
+    fnorm = fnorm - 1.0;
+
+    // calculate the binary form (non-float) of the significand data
+    significand = fnorm * ((1LL<<significandbits) + 0.5f);
+
+    // get the biased exponent
+    exp = shift + ((1<<(expbits-1)) - 1); // shift + bias
+
+    // return the final answer
+    return (sign<<(bits-1)) | (exp<<(bits-expbits-1)) | significand;
+}
+
+long double unpack754(uint64_t i, unsigned bits, unsigned expbits) {
+    long double result;
+    long long shift;
+    unsigned bias;
+    unsigned significandbits = bits - expbits - 1; // -1 for sign bit
+
+    if (i == 0) return 0.0;
+
+    // pull the significand
+    result = (i&((1LL<<significandbits)-1)); // mask
+    result /= (1LL<<significandbits); // convert back to float
+    result += 1.0f; // add the one back on
+
+    // deal with the exponent
+    bias = (1<<(expbits-1)) - 1;
+    shift = ((i>>significandbits)&((1LL<<expbits)-1)) - bias;
+    while (shift > 0) { result *= 2.0; shift--; }
+    while (shift < 0) { result /= 2.0; shift++; }
+
+    // sign it
+    result *= (i>>(bits-1))&1? -1.0: 1.0;
+
+    return result;
+}
+
+/*
  * Pack integer numbers based on the type on a pointer accepting the result
  * to maintain the same API's definition with `unpack_bytes`, type argument
  * follows the table:
@@ -187,6 +252,34 @@ size_t pack_integer(uint8_t **buf, int8_t type, int64_t val) {
             break;
     }
     return len;
+}
+
+size_t pack_real(uint8_t **buf, int8_t type, long double val) {
+    size_t size = 0;
+    uintmax_t fhold;
+    switch (type) {
+        case 'f': // float-16
+            fhold = pack754_16(val); // convert to IEEE 754
+            packi16(*buf, fhold);
+            buf += 2;
+            size += 2;
+            break;
+
+        case 'd': // float-32
+            fhold = pack754_32(val); // convert to IEEE 754
+            packi32(*buf, fhold);
+            buf += 4;
+            size += 4;
+            break;
+
+        case 'g': // float-64
+            fhold = pack754_64(val); // convert to IEEE 754
+            packi64(*buf, fhold);
+            buf += 8;
+            size += 8;
+            break;
+    }
+    return size;
 }
 
 /*
@@ -244,6 +337,34 @@ size_t unpack_integer(uint8_t **buf, int8_t type, int64_t *val) {
     return len;
 }
 
+size_t unpack_real(uint8_t **buf, int8_t type, long double *val) {
+    size_t size = 0;
+    uintmax_t fhold;
+    switch (type) {
+        case 'f': // float
+            fhold = unpacku16(*buf);
+            *val = unpack754_16(fhold);
+            buf += 2;
+            size += 2;
+            break;
+
+        case 'd': // float-32
+            fhold = unpacku32(*buf);
+            *val = unpack754_32(fhold);
+            buf += 4;
+            size += 4;
+            break;
+
+        case 'g': // float-64
+            fhold = unpacku64(*buf);
+            *val = unpack754_64(fhold);
+            buf += 8;
+            size += 8;
+            break;
+    }
+    return size;
+}
+
 /*
  * Unpack `len` bytes from the buffer into a destination buffer, it's up to
  * the caller making sure the `dst` argument points to a valid buffer
@@ -285,6 +406,11 @@ uint64_t unpack(uint8_t *buf, char *format, ...) {
 
     int64_t *q;            // 64-bit
     uint64_t *Q;
+
+    float *f;                    // floats
+    double *d;
+    long double *g;
+    uintmax_t fhold;
 
     char *s;
     uint64_t maxstrlen = 0, size = 0;
@@ -351,6 +477,30 @@ uint64_t unpack(uint8_t *buf, char *format, ...) {
                 size += 8;
                 break;
 
+            case 'f': // float
+                f = va_arg(ap, float *);
+                fhold = unpacku16(buf);
+                *f = unpack754_16(fhold);
+                buf += 2;
+                size += 2;
+                break;
+
+            case 'd': // float-32
+                d = va_arg(ap, double *);
+                fhold = unpacku32(buf);
+                *d = unpack754_32(fhold);
+                buf += 4;
+                size += 4;
+                break;
+
+            case 'g': // float-64
+                g = va_arg(ap, long double *);
+                fhold = unpacku64(buf);
+                *g = unpack754_64(fhold);
+                buf += 8;
+                size += 8;
+                break;
+
             case 's': // string
                 s = va_arg(ap, char *);
                 memcpy(s, buf, maxstrlen);
@@ -400,6 +550,11 @@ uint64_t pack(uint8_t *buf, char *format, ...) {
 
     int64_t q;            // 64-bit
     uint64_t Q;
+
+    float f;                    // floats
+    double d;
+    long double g;
+    uintmax_t fhold;
 
     char *s;                    // strings
     uint64_t len, size = 0;
@@ -459,6 +614,30 @@ uint64_t pack(uint8_t *buf, char *format, ...) {
                 size += 8;
                 Q = va_arg(ap, uint64_t);
                 packi64(buf, Q);
+                buf += 8;
+                break;
+
+            case 'f': // float-16
+                size += 2;
+                f = (float) va_arg(ap, double); // promoted
+                fhold = pack754_16(f); // convert to IEEE 754
+                packi16(buf, fhold);
+                buf += 2;
+                break;
+
+            case 'd': // float-32
+                size += 4;
+                d = va_arg(ap, double);
+                fhold = pack754_32(d); // convert to IEEE 754
+                packi32(buf, fhold);
+                buf += 4;
+                break;
+
+            case 'g': // float-64
+                size += 8;
+                g = va_arg(ap, long double);
+                fhold = pack754_64(g); // convert to IEEE 754
+                packi64(buf, fhold);
                 buf += 8;
                 break;
 
