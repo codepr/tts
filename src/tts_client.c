@@ -83,9 +83,17 @@ static inline unsigned get_digits(unsigned long long n) {
 
 static inline long long read_number(char *str) {
     char *nul = NULL;
-    long long n = strtol(str, &nul, 10);
+    long long n = strtoll(str, &nul, 10);
     if (*nul != '\0' || nul == str ||
         (get_digits(n) < 10 && get_digits(n) > 13))
+        return TTS_CLIENT_FAILURE;
+    return n;
+}
+
+static inline long double read_real(char *str) {
+    char *nul = NULL;
+    long long n = strtold(str, &nul);
+    if (*nul != '\0' || nul == str)
         return TTS_CLIENT_FAILURE;
     return n;
 }
@@ -157,9 +165,8 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
             points->points[i].ts_nsec = tspec.tv_nsec;
         }
         vals = strtok_r(NULL, " ", &end_val);
-        points->points[i].value = atoll(vals);
-        vals = strtok_r(NULL, " ", &end_val);
-        do {
+        points->points[i].value = read_real(vals);
+        while ((vals = strtok_r(NULL, " ", &end_val))) {
             if (j == vsize - 1) {
                 vsize *= 2;
                 points->points[i].labels =
@@ -179,7 +186,7 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
                      points->points[i].labels[j].value_len + 1, "%s", vals);
             points->points[i].labels_len++;
             j++;
-        } while ((vals = strtok_r(NULL, " ", &end_val)));
+        }
         points->points_len++;
     }
     return 0;

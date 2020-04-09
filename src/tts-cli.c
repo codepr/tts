@@ -37,6 +37,10 @@
 
 #define BUFSIZE     2048
 
+static double time_spec_seconds(struct timespec* ts) {
+    return (double) ts->tv_sec + (double) ts->tv_nsec * 1.0e-9;
+}
+
 static void prompt(tts_client *c) {
     printf("%s:%i> ", c->host, c->port);
 }
@@ -66,15 +70,23 @@ int main(int argc, char **argv) {
     size_t line_len = 0LL;
     char *line = NULL;
     struct tts_packet tts_p;
+    double delta = 0.0;
     tts_client c;
     tts_client_init(&c, "127.0.0.1", 6767);
     tts_client_connect(&c);
+    struct timespec tstart = {0,0}, tend = {0,0};
     while (1) {
         prompt(&c);
         getline(&line, &line_len, stdin);
+        (void) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tstart);
         tts_client_send_command(&c, line);
         tts_client_recv_response(&c, &tts_p);
+        (void) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tend);
         print_tts_response(&tts_p);
+        if (tts_p.header.byte == TTS_QUERY_RESPONSE) {
+            delta = time_spec_seconds(&tend) - time_spec_seconds(&tstart);
+            printf("%lu results in %lf seconds.\n", tts_p.query_ack.len, delta);
+        }
     }
     tts_client_destroy(&c);
     free(line);

@@ -90,6 +90,7 @@ static void ts_destroy(struct tts_timeseries *tss) {
             for (size_t j = 0; j < record->labels_nr; ++j) {
                 free(record->labels[j].field);
             }
+            free(record->labels);
             free(record);
         }
         TTS_VECTOR_DESTROY(ts->columns);
