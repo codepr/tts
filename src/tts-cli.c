@@ -36,8 +36,6 @@
 #include "tts_client.h"
 #include "tts_protocol.h"
 
-#define BUFSIZE     2048
-
 static double time_spec_seconds(struct timespec* ts) {
     return (double) ts->tv_sec + (double) ts->tv_nsec * 1.0e-9;
 }

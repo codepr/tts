@@ -37,6 +37,7 @@
 #include "tts_protocol.h"
 #include "tts_client.h"
 
+#define BUFSIZE             2048
 #define COMMANDS_NR         4
 #define TTS_CLIENT_SUCCES   0
 #define TTS_CLIENT_FAILURE -1
@@ -61,11 +62,6 @@ static tts_cmd_handler handlers[4] = {
     tts_handle_add,
     tts_handle_query
 };
-
-static inline void strip_spaces(char **str) {
-    if (!*str) return;
-    while (isspace(**str) && **str) ++(*str);
-}
 
 static inline void remove_newline(char *str) {
     char *ptr = strstr(str, "\n");
@@ -300,9 +296,9 @@ err:
 }
 
 void tts_client_init(tts_client *client, const char *host, int port) {
-    client->buf = malloc(2048);
+    client->buf = malloc(BUFSIZE);
     client->bufsize = 0;
-    client->capacity = 2048;
+    client->capacity = BUFSIZE;
     client->host = (char *) host;
     client->port = port;
 }
