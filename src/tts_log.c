@@ -45,8 +45,7 @@ void tts_log_init(const char *file) {
     if (!file) return;
     fh = fopen(file, "a+");
     if (!fh)
-        printf("%lu WARNING: Unable to open file %s\n",
-               (unsigned long) time(NULL), file);
+        log_warning("WARNING: Unable to open file %s", file);
 }
 
 /*
