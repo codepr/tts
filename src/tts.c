@@ -26,45 +26,79 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include "tts.h"
+#include "tts_log.h"
+#include "tts_config.h"
 #include "tts_server.h"
 
-int main(void) {
-    //struct tts_timeseries ts;
-    //TTS_VECTOR_INIT(ts.timestamps, 4, sizeof(struct timespec));
-    //TTS_VECTOR_INIT(ts.columns, 4, sizeof(TTS_VECTOR(struct tts_record)));
-    //for (int i = 0; i < 4; ++i)
-    //    TTS_VECTOR_NEW(TTS_VECTOR_AT(ts.columns, i), sizeof(struct tts_record));
-    //struct timespec specs[4] = {0};
-    //clock_gettime(CLOCK_REALTIME, &specs[0]);
-    //usleep(5000);
-    //struct timespec target;
-    //clock_gettime(CLOCK_REALTIME, &target);
-    //clock_gettime(CLOCK_REALTIME, &specs[1]);
-    //clock_gettime(CLOCK_REALTIME, &specs[2]);
-    //usleep(3500);
-    //clock_gettime(CLOCK_REALTIME, &specs[3]);
-    //for (int i = 0; i < 4; ++i)
-    //    TTS_VECTOR_APPEND(ts.timestamps, specs[i]);
-    //printf("size: %lu\n", TTS_VECTOR_SIZE(ts.timestamps));
-    //int n;
-    //TTS_VECTOR_BINSEARCH(ts.timestamps, &target, timespec_compare, &n);
-    //printf("target %lu %lu\n", target.tv_sec, target.tv_nsec);
-    //printf("n %i\n", n);
-    //struct timespec tspec;
-    //if (n != -1) {
-    //    tspec = TTS_VECTOR_AT(ts.timestamps, n);
-    //    printf("%i -> %lu %lu\n", n, tspec.tv_sec, tspec.tv_nsec);
-    //}
-    //for (int i = 0; i < 4; ++i) {
-    //    tspec = TTS_VECTOR_AT(ts.timestamps, i);
-    //    printf("%i -> %lu %lu\n", i, tspec.tv_sec, tspec.tv_nsec);
-    //    TTS_VECTOR_DESTROY(TTS_VECTOR_AT(ts.columns, i));
-    //}
-    //TTS_VECTOR_DESTROY(ts.columns);
-    //TTS_VECTOR_DESTROY(ts.timestamps);
+static const char *flag_description[] = {
+    "Print this help",
+    "Set a configuration file to load and use",
+    "Enable all logs, setting log level to DEBUG",
+    "Run in daemon mode"
+};
 
-    tts_start_server("127.0.0.1", 6767);
+void print_help(char *me) {
+    printf("\ntts v%s Transient Time Series, a lightweight in-memory TSDB\n\n",
+           VERSION);
+    printf("Usage: %s [-c conf] [-v|-d|-h]\n\n", me);
+    const char flags[4] = "hcvd";
+    for (int i = 0; i < 4; ++i)
+        printf(" -%c: %s\n", flags[i], flag_description[i]);
+    printf("\n");
+}
+
+int main(int argc, char **argv) {
+    char *confpath = DEFAULT_CONF_PATH, *host = DEFAULT_HOSTNAME;
+    int debug = 0, daemon = 0, port = DEFAULT_PORT;
+    int opt;
+
+    // Set default configuration
+    tts_config_set_default();
+
+    while ((opt = getopt(argc, argv, "c:vhd:")) != -1) {
+        switch (opt) {
+            case 'a':
+                host = optarg;
+                break;
+            case 'p':
+                port = atoi(optarg);
+                break;
+            case 'c':
+                confpath = optarg;
+                break;
+            case 'v':
+                debug = 1;
+                break;
+            case 'd':
+                daemon = 1;
+                break;
+            case 'h':
+                print_help(argv[0]);
+                exit(EXIT_SUCCESS);
+            default:
+                fprintf(stderr, "Usage: %s [-c conf] [-a addr] [-p port] [-vhd]\n",
+                        argv[0]);
+                exit(EXIT_FAILURE);
+        }
+    }
+
+    // Override default DEBUG mode
+    conf->loglevel = debug == 1 ? DEBUG : WARNING;
+
+    tts_config_load(confpath);
+    tts_log_init(conf->logpath);
+
+    if (daemon == 1)
+        tts_daemonize();
+
+    // Print configuration
+    tts_config_print();
+
+    tts_start_server(host, port);
+
+    tts_log_close();
+
     return 0;
 }

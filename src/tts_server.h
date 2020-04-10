@@ -40,5 +40,6 @@ struct tts_server {
 extern struct tts_server tts_server;
 
 int tts_start_server(const char *, int);
+void tts_daemonize(void);
 
 #endif

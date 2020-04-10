@@ -127,3 +127,23 @@ int tts_start_server(const char *host, int port) {
 
     return 0;
 }
+
+/*
+ * Make the entire process a daemon
+ */
+void tts_daemonize(void) {
+
+    int fd;
+
+    if (fork() != 0)
+        exit(0);
+
+    setsid();
+
+    if ((fd = open("/dev/null", O_RDWR, 0)) != -1) {
+        dup2(fd, STDIN_FILENO);
+        dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDERR_FILENO);
+        if (fd > STDERR_FILENO) close(fd);
+    }
+}

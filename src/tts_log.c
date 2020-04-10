@@ -32,6 +32,7 @@
 #include <assert.h>
 #include <string.h>
 #include "tts_log.h"
+#include "tts_config.h"
 
 /* Global file handle for logging on disk */
 static FILE *fh = NULL;
@@ -61,7 +62,7 @@ void tts_log_close(void) {
 
 void tts_log(int level, const char *fmt, ...) {
 
-    if (level < TTS_LOG_LEVEL)
+    if (level < conf->loglevel)
         return;
 
     assert(fmt);

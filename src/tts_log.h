@@ -28,7 +28,6 @@
 #ifndef TTS_LOG_H
 #define TTS_LOG_H
 
-#define TTS_LOG_LEVEL DEBUG
 #define MAX_LOG_SIZE 0xFF
 
 enum log_level { DEBUG, INFORMATION, WARNING, ERROR, FATAL };
