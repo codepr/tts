@@ -228,16 +228,9 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
         } else if (strcasecmp(token, "last") == 0) {
             tts_p->query.bits.last = 1;
         } else if (strcasecmp(token, "avg") == 0) {
-            //token = strtok(NULL, " ");
-            //tts_p->query.mean_field = malloc(strlen(token) + 1);
-            //tts_p->query.mean_field_len = strlen(token);
-            //printf("token %s\n", token);
-            //snprintf((char *) tts_p->query.mean_field,
-            //         strlen(token) + 1, "%s", token);
             token = strtok(NULL, " ");
             tts_p->query.mean_val = atoll(token);
             tts_p->query.bits.mean = 1;
-            //tts_p->query.bits.mean_field = 1;
         }
     }
     return 0;
