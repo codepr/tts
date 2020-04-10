@@ -63,6 +63,7 @@ struct tts_record {
  */
 struct tts_timeseries {
     size_t fields_nr;
+    uint32_t retention;
     char name[TTS_TS_NAME_MAX_LENGTH];
     TTS_VECTOR(unsigned long long) timestamps;
     TTS_VECTOR(struct tts_record *) columns;
@@ -100,8 +101,9 @@ static inline int timespec_compare(const struct timespec *t1,
     return -1;
 }
 
-#define TTS_TIMESERIES_INIT(ts, ts_name) do {                       \
+#define TTS_TIMESERIES_INIT(ts, ts_name, ret) do {                  \
     snprintf((ts)->name, TTS_TS_NAME_MAX_LENGTH, "%s", (ts_name));  \
+    (ts)->retention = (ret);                                        \
     TTS_VECTOR_NEW((ts)->timestamps);                               \
     TTS_VECTOR_NEW((ts)->columns);                                  \
 } while (0)

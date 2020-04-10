@@ -62,26 +62,16 @@
  * The last two steps, will be repeated until the expected length of the packet
  * is exhausted.
  */
-static void unpack_tts_create(uint8_t *buf, size_t len, struct tts_create *c) {
+static void unpack_tts_create(uint8_t *buf, size_t len,
+                              struct tts_create_ts *c) {
     int64_t val = 0;
     // zero'ing tts_create struct
     memset(c, 0x00, sizeof(*c));
     len -= unpack_integer(&buf, 'B', &val);
     c->ts_name_len = val;
     c->ts_name = malloc(c->ts_name_len + 1);
-    len -=  unpack_bytes(&buf, c->ts_name_len, c->ts_name);
-    //for (int i = 0; len > 0; ++i) {
-    //    /*
-    //     * Probably not the best way to handle it but we have to make room for
-    //     * additional incoming tuples
-    //     */
-    //    c->fields = realloc(c->fields, (i + 1) * sizeof(*c->fields));
-    //    len -= unpack_integer(&buf, 'H', &val);
-    //    c->fields[i].field_len = val;
-    //    c->fields[i].field = malloc(c->fields[i].field_len + 1);
-    //    len -= unpack_bytes(&buf, c->fields[i].field_len, c->fields[i].field);
-    //    ++c->fields_len;
-    //}
+    len -= unpack_bytes(&buf, c->ts_name_len, c->ts_name);
+    len -= unpack_integer(&buf, 'I', (int64_t *) &c->retention);
 }
 
 /*
@@ -99,7 +89,8 @@ static void unpack_tts_create(uint8_t *buf, size_t len, struct tts_create *c) {
  * | Byte N     |                                               |
  * |____________|_______________________________________________|
  */
-static void unpack_tts_delete(uint8_t *buf, size_t len, struct tts_delete *d) {
+static void unpack_tts_delete(uint8_t *buf, size_t len,
+                              struct tts_delete_ts *d) {
     (void) len;
     int64_t val = 0;
     // zero'ing tts_delete struct
@@ -123,24 +114,37 @@ static void unpack_tts_delete(uint8_t *buf, size_t len, struct tts_delete *d) {
  * |   .        |              Time series name                 |
  * | Byte N     |                                               |
  * |------------|-----------------------------------------------|<- Array start
- * | Byte N+1   |                Field len MSB                  |
- * | Byte N+2   |                Field len LSB                  |
+ * | Byte N+1   | tss | tsn |           reserved                |
  * |------------|-----------------------------------------------|
- * | Byte N+3   |                                               |
- * |   .        |                 Field name                    |
+ * | Byte N+2   |                                               |
+ * |   .        |                  value                        |
+ * | Byte N+18  |                                               |
+ * |------------|-----------------------------------------------|
+ * | Byte N+19  |                                               |
+ * |   .        |          Timestamp seconds component          |
+ * | Byte N+26  |                                               |
+ * |------------|-----------------------------------------------|
+ * | Byte N+27  |                                               |
+ * |   .        |        Timestamp nanoseconds component        |
+ * | Byte N+34  |                                               |
+ * |____________|_______________________________________________|
+ * | Byte N+35  |               Labels len MSB                  |
+ * | Byte N+36  |               Labels len LSB                  |
+ * |------------|-----------------------------------------------|<- Labels arr
+ * | Byte N+37  |                Field len MSB                  |
+ * | Byte N+38  |                Field len LSB                  |
+ * |------------|-----------------------------------------------|
+ * | Byte N+39  |                                               |
+ * |   .        |                 Label name                    |
  * | Byte N+M   |                                               |
  * |------------|-----------------------------------------------|
- * | Byte K     |                Value len MSB                  |
- * | Byte K+1   |                Value len LSB                  |
+ * | Byte K     |             Label Value len MSB               |
+ * | Byte K+1   |             Label Value len LSB               |
  * |------------|-----------------------------------------------|
  * | Byte K+2   |                                               |
- * |   .        |          Timestamp seconds component          |
- * | Byte K+10  |                                               |
+ * |   .        |                 Label Value                   |
+ * | Byte K+N   |                                               |
  * |------------|-----------------------------------------------|
- * | Byte K+11  |                                               |
- * |   .        |        Timestamp nanoseconds component        |
- * | Byte K+19  |                                               |
- * |____________|_______________________________________________|
  *
  * The steps starting at [Array start] will be repeated until the expected
  * length of the packet is exhausted.
@@ -157,15 +161,15 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
     for (int i = 0; len > 0; ++i) {
         a->points = realloc(a->points, (i + 1) * sizeof(*a->points));
         len -= unpack_integer(&buf, 'B', &val);
-        a->points[i].ts_flags.byte = val;
+        a->points[i].byte = val;
         len -= unpack_real(&buf, 'g', &a->points[i].value);
         // Unpack the seconds and nanoseconds component of the timestamp if
         // present
-        if (a->points[i].ts_flags.bits.ts_sec_set == 1) {
+        if (a->points[i].bits.ts_sec_set == 1) {
             len -= unpack_integer(&buf, 'Q', &val);
             a->points[i].ts_sec = val;
         }
-        if (a->points[i].ts_flags.bits.ts_nsec_set == 1) {
+        if (a->points[i].bits.ts_nsec_set == 1) {
             len -= unpack_integer(&buf, 'Q', &val);
             a->points[i].ts_nsec = val;
         }
@@ -194,10 +198,10 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
  *
  * |   Bit      |  7  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
  * |------------|-----------------------------------------------|
- * | Byte 5     | avg |first| last|  gt |  lt |    reserved     |
+ * | Byte 5     |          Time series name len MSB             |
+ * | Byte 6     |          Time series name len LSB             |
  * |------------|-----------------------------------------------|
- * | Byte 6     |          Time series name len MSB             |
- * | Byte 7     |          Time series name len LSB             |
+ * | Byte 7     | avg |first| last|  gt |  lt |    reserved     |
  * |------------|-----------------------------------------------|
  * | Byte 8     |                                               |
  * |   .        |              Time series name                 |
@@ -225,39 +229,39 @@ static void unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
     // zero'ing tts_query struct
     memset(q, 0x00, sizeof(*q));
     len -= unpack_integer(&buf, 'B', &val);
-    q->byte = val;
-    len -= unpack_integer(&buf, 'B', &val);
     q->ts_name_len = val;
     q->ts_name = malloc(q->ts_name_len + 1);
     len -= unpack_bytes(&buf, q->ts_name_len, q->ts_name);
-    if (q->bits.mean == 1) {
+    // We unpack the query header here, carrying the flags and filter to apply
+    // to the requested query
+    len -= unpack_integer(&buf, 'B', &val);
+    q->byte = val;
+    // Next fields are optional, we unpack them only after their flags
+    if (q->bits.mean == 1)
         len -= unpack_integer(&buf, 'Q', (int64_t *) &q->mean_val);
-        if (q->bits.mean_field == 1) {
-            len -= unpack_integer(&buf, 'H', (int64_t *) &q->mean_field_len);
-            q->mean_field = malloc(q->mean_field_len + 1);
-            len -= unpack_bytes(&buf, q->mean_field_len, q->mean_field);
-        }
-    }
     if (q->bits.major_of == 1)
         len -= unpack_integer(&buf, 'Q', (int64_t *) &q->major_of);
     if (q->bits.minor_of == 1)
         len -= unpack_integer(&buf, 'Q', (int64_t *) &q->minor_of);
 }
 
+/*
+ * Unpack the binary buffer to a tts_query_response
+ */
 static void unpack_tts_query_response(uint8_t *buf, size_t len,
-                                      struct tts_query_ack *qa) {
+                                      struct tts_query_response *qa) {
     int64_t val = 0LL;
     memset(qa, 0x00, sizeof(*qa));
     for (size_t i = 0; len > 0; ++i) {
         qa->results = realloc(qa->results, (i + 1) * sizeof(*qa->results));
         len -= unpack(buf, "BQQgH", &qa->results[i].rc, &qa->results[i].ts_sec,
                       &qa->results[i].ts_nsec, &qa->results[i].value,
-                      &qa->results[i].res_len);
+                      &qa->results[i].labels_len);
         buf += sizeof(uint8_t) + sizeof(uint16_t) +
             sizeof(long double) + sizeof(uint64_t) * 2;
         qa->results[i].labels =
-            calloc(qa->results[i].res_len, sizeof(*qa->results[i].labels));
-        for (size_t j = 0; j < qa->results[i].res_len; ++j) {
+            calloc(qa->results[i].labels_len, sizeof(*qa->results[i].labels));
+        for (size_t j = 0; j < qa->results[i].labels_len; ++j) {
             len -= unpack_integer(&buf, 'H', &val);
             qa->results[i].labels[j].label_len = val;
             qa->results[i].labels[j].label =
@@ -275,40 +279,32 @@ static void unpack_tts_query_response(uint8_t *buf, size_t len,
     }
 }
 
-static void unpack_tts_ack(uint8_t *buf, size_t len, struct tts_ack *a) {
-    (void) len;
-    memset(a, 0x00, sizeof(*a));
-    unpack_integer(&buf, 'B', (int64_t *) &a->rc);
-}
-
 /*
  * Unpack a tts_packet, after reading the header opcode and the length of the
  * entire packet, calls the right unpack function based on the command type
  */
 void unpack_tts_packet(uint8_t *buf, struct tts_packet *tts_p) {
-    size_t len = 0;
     int64_t val = 0;
     tts_p->header.byte = *buf++;
     unpack_integer(&buf, 'I', &val);
-    len = val;
-    switch(tts_p->header.byte) {
-        case TTS_CREATE:
-            unpack_tts_create(buf, len, &tts_p->create);
+    tts_p->len = val;
+    if (tts_p->header.opcode == TTS_ACK)
+        return;
+    switch(tts_p->header.opcode) {
+        case TTS_CREATE_TS:
+            unpack_tts_create(buf, tts_p->len, &tts_p->create);
             break;
-        case TTS_DELETE:
-            unpack_tts_delete(buf, len, &tts_p->drop);
+        case TTS_DELETE_TS:
+            unpack_tts_delete(buf, tts_p->len, &tts_p->drop);
             break;
         case TTS_ADDPOINTS:
-            unpack_tts_addpoints(buf, len, &tts_p->addpoints);
+            unpack_tts_addpoints(buf, tts_p->len, &tts_p->addpoints);
             break;
         case TTS_QUERY:
-            unpack_tts_query(buf, len, &tts_p->query);
-            break;
-        case TTS_ACK:
-            unpack_tts_ack(buf, len, &tts_p->ack);
+            unpack_tts_query(buf, tts_p->len, &tts_p->query);
             break;
         case TTS_QUERY_RESPONSE:
-            unpack_tts_query_response(buf, len, &tts_p->query_ack);
+            unpack_tts_query_response(buf, tts_p->len, &tts_p->query_r);
             break;
     }
 }
@@ -319,61 +315,38 @@ void unpack_tts_packet(uint8_t *buf, struct tts_packet *tts_p) {
  *========================
  */
 
-static ssize_t pack_tts_create(const struct tts_create *create, uint8_t *buf) {
-    ssize_t len = 0LL;
-    uint8_t *ptr = buf;
-    buf += sizeof(uint32_t);
-    len += pack(buf, "Bs", create->ts_name_len, create->ts_name);
-    buf += sizeof(uint8_t) + create->ts_name_len;
-    //for (int i = 0; i < create->fields_len; ++i) {
-    //    len += pack(buf, "Hs", create->fields[i].field_len,
-    //                create->fields[i].field);
-    //    buf += sizeof(uint16_t) + create->fields[i].field_len;
-    //}
-    pack_integer(&ptr, 'I', len);
-    len += sizeof(uint8_t) + sizeof(uint32_t);
-    return len;
+static ssize_t pack_tts_create(const struct tts_create_ts *create,
+                               uint8_t *buf) {
+    return pack(buf, "BsI", create->ts_name_len,
+                create->ts_name, create->retention);
 }
 
-static ssize_t pack_tts_delete(const struct tts_delete *drop, uint8_t *buf) {
-    ssize_t len = sizeof(uint8_t) + drop->ts_name_len;
-    len += pack(buf, "IBs", len, drop->ts_name_len, drop->ts_name);
-    return len;
+static ssize_t pack_tts_delete(const struct tts_delete_ts *drop, uint8_t *buf) {
+    return pack(buf, "Bs", drop->ts_name_len, drop->ts_name);
 }
 
 static ssize_t pack_tts_query(const struct tts_query *query, uint8_t *buf) {
-    uint8_t *ptr = buf;
-    buf += sizeof(uint32_t);
-    ssize_t len = pack(buf, "BBs", query->byte,
-                       query->ts_name_len, query->ts_name);
+    ssize_t len = pack(buf, "BsB", query->ts_name_len,
+                       query->ts_name, query->byte);
     buf += len;
-    if (query->bits.mean == 1) {
+    if (query->bits.mean == 1)
         len += pack_integer(&buf, 'Q', query->mean_val);
-        if (query->bits.mean_field == 1) {
-            len += pack(buf, "Hs", query->mean_field_len, query->mean_field);
-            buf += sizeof(uint16_t) + query->mean_field_len;
-        }
-    }
     if (query->bits.major_of == 1)
         len += pack_integer(&buf, 'Q', query->major_of);
     if (query->bits.minor_of == 1)
         len += pack_integer(&buf, 'Q', query->minor_of);
-    len += pack_integer(&ptr, 'I', len);
     return len;
 }
 
 static ssize_t pack_tts_addpoints(const struct tts_addpoints *a, uint8_t *buf) {
-    size_t len = 0;
-    uint8_t *ptr = (uint8_t *) buf;
-    buf += sizeof(uint32_t);
-    len += pack(buf, "Bs", a->ts_name_len, a->ts_name);
+    size_t len = pack(buf, "Bs", a->ts_name_len, a->ts_name);
     buf += len;
     for (int i = 0; i < a->points_len; ++i) {
-        len += pack_integer(&buf, 'B', a->points[i].ts_flags.byte);
+        len += pack_integer(&buf, 'B', a->points[i].byte);
         len += pack_real(&buf, 'g', a->points[i].value);
-        if (a->points[i].ts_flags.bits.ts_sec_set == 1)
+        if (a->points[i].bits.ts_sec_set == 1)
             len += pack_integer(&buf, 'Q', a->points[i].ts_sec);
-        if (a->points[i].ts_flags.bits.ts_nsec_set == 1)
+        if (a->points[i].bits.ts_nsec_set == 1)
             len += pack_integer(&buf, 'Q', a->points[i].ts_nsec);
         len += pack_integer(&buf, 'H', a->points[i].labels_len);
         for (int j = 0; j < a->points[i].labels_len; ++j) {
@@ -385,84 +358,73 @@ static ssize_t pack_tts_addpoints(const struct tts_addpoints *a, uint8_t *buf) {
                 a->points[i].labels[j].value_len;
         }
     }
-    len += pack_integer(&ptr, 'I', len);
     return len;
 }
 
-/*
- * Simple helper to set a bytes buffer to an ACK response with a defined RC
- */
-static ssize_t pack_tts_ack(const struct tts_ack *ack, uint8_t *buf) {
-    return pack(buf, "IB", 1, ack->rc);
-}
-
-ssize_t pack_tts_query_response(const struct tts_query_ack *qa, uint8_t *buf) {
+ssize_t pack_tts_query_response(const struct tts_query_response *qr,
+                                uint8_t *buf) {
     size_t len = 0LL;
     size_t packed = 0LL;
-    uint8_t *ptr = buf + sizeof(uint32_t);
-    for (uint64_t i = 0; i < qa->len; ++i) {
-        packed = pack(ptr, "BQQgH", qa->results[i].rc, qa->results[i].ts_sec,
-                      qa->results[i].ts_nsec, qa->results[i].value,
-                      qa->results[i].res_len);
-        ptr += packed;
+    for (uint64_t i = 0; i < qr->len; ++i) {
+        packed = pack(buf, "BQQgH", qr->results[i].rc, qr->results[i].ts_sec,
+                      qr->results[i].ts_nsec, qr->results[i].value,
+                      qr->results[i].labels_len);
+        buf += packed;
         len += packed;
-        for (size_t j = 0; j < qa->results[i].res_len; ++j) {
-            packed = pack(ptr, "HsHs",
-                          qa->results[i].labels[j].label_len,
-                          qa->results[i].labels[j].label,
-                          qa->results[i].labels[j].value_len,
-                          qa->results[i].labels[j].value);
+        for (size_t j = 0; j < qr->results[i].labels_len; ++j) {
+            packed = pack(buf, "HsHs",
+                          qr->results[i].labels[j].label_len,
+                          qr->results[i].labels[j].label,
+                          qr->results[i].labels[j].value_len,
+                          qr->results[i].labels[j].value);
+            buf += packed;
             len += packed;
-            ptr += packed;
         }
     }
-    len += pack_integer(&buf, 'I', (uint32_t) len);
     return len;
 }
 
 ssize_t pack_tts_packet(const struct tts_packet *tts_p, uint8_t *buf) {
+    int len_offset = sizeof(uint32_t);
     ssize_t len = pack_integer(&buf, 'B', tts_p->header.byte);
-    switch(tts_p->header.byte) {
-        case TTS_CREATE:
-            len += pack_tts_create(&tts_p->create, buf);
+    ssize_t plen = 0;
+    if (tts_p->header.opcode == TTS_ACK)
+        goto encode_len;
+    switch(tts_p->header.opcode) {
+        case TTS_CREATE_TS:
+            plen = pack_tts_create(&tts_p->create, buf + len_offset);
             break;
-        case TTS_DELETE:
-            len += pack_tts_delete(&tts_p->drop, buf);
+        case TTS_DELETE_TS:
+            plen = pack_tts_delete(&tts_p->drop, buf + len_offset);
             break;
         case TTS_ADDPOINTS:
-            len += pack_tts_addpoints(&tts_p->addpoints, buf);
+            plen = pack_tts_addpoints(&tts_p->addpoints, buf + len_offset);
             break;
         case TTS_QUERY:
-            len += pack_tts_query(&tts_p->query, buf);
-            break;
-        case TTS_ACK:
-            len += pack_tts_ack(&tts_p->ack, buf);
+            plen = pack_tts_query(&tts_p->query, buf + len_offset);
             break;
         case TTS_QUERY_RESPONSE:
-            len += pack_tts_query_response(&tts_p->query_ack, buf);
+            plen = pack_tts_query_response(&tts_p->query_r, buf + len_offset);
             break;
     }
+encode_len:
+    len += plen;
+    len += pack_integer(&buf, 'I', plen);
     return len;
 }
 
 void tts_packet_destroy(struct tts_packet *packet) {
-    switch (packet->header.byte) {
-        case TTS_CREATE:
+    switch (packet->header.opcode) {
+        case TTS_CREATE_TS:
             free(packet->create.ts_name);
-            //for (int i = 0; i < packet->create.; ++i)
-            //    free(packet->create.fields[i].field);
-            //free(packet->create.fields);
             break;
-        case TTS_DELETE:
+        case TTS_DELETE_TS:
             free(packet->drop.ts_name);
             break;
         case TTS_ADDPOINTS:
             free(packet->addpoints.ts_name);
-            for (int i = 0; i < packet->addpoints.points_len; ++i) {
+            for (int i = 0; i < packet->addpoints.points_len; ++i)
                 free(packet->addpoints.points[i].labels);
-                //free(packet->addpoints.points[i].field);
-                //free(packet->addpoints.points[i].value);
-            }
             free(packet->addpoints.points);
             break;
         case TTS_QUERY:

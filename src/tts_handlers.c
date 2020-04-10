@@ -34,17 +34,10 @@ static int handle_tts_create(struct tts_payload *payload) {
     ev_buf *buf = payload->buf;
     struct tts_packet *packet = &payload->packet;
     struct tts_timeseries *ts = malloc(sizeof(*ts));
-    TTS_TIMESERIES_INIT(ts, packet->create.ts_name);
-    //for (int i = 0; i < packet->create.fields_len; i++)
-    //    TTS_VECTOR_APPEND(ts->fields, (char *) packet->create.fields[i].field);
-    // add to db hashmap
+    TTS_TIMESERIES_INIT(ts, packet->create.ts_name, packet->create.retention);
     HASH_ADD_STR(payload->tts_db->timeseries, name, ts);
-    struct tts_packet response = {
-        .header.byte = TTS_ACK,
-        .ack = (struct tts_ack) {
-            .rc = TTS_OK
-        }
-    };
+    struct tts_packet response = {0};
+    TTS_SET_RESPONSE_HEADER(&response, TTS_ACK, TTS_OK);
     buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
     return TTS_OK;
 }
@@ -55,16 +48,13 @@ static int handle_tts_delete(struct tts_payload *payload) {
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->drop.ts_name;
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
-    struct tts_packet response = {
-        .header.byte = TTS_ACK,
-        .ack = (struct tts_ack) {
-            .rc = TTS_OK
-        }
-    };
+    int rc = TTS_OK;
     if (!ts)
-        response.ack.rc = TTS_OK;
+        rc = TTS_ENOTS;
     else
         HASH_DEL(payload->tts_db->timeseries, ts);
+    struct tts_packet response = {0};
+    TTS_SET_RESPONSE_HEADER(&response, TTS_ACK, rc);
     buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
     return TTS_OK;
 }
@@ -75,21 +65,17 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
     struct tts_timeseries *ts = NULL;
     char *key = (char *) pa->ts_name;
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
-    struct tts_packet response = {
-        .header.byte = TTS_ACK,
-        .ack = (struct tts_ack) {
-            .rc = TTS_OK
-        }
-    };
+    struct tts_packet response = {0};
+    int rc = TTS_OK;
     if (!ts) {
-        response.ack.rc = TTS_NOK;
+        rc = TTS_ENOTS;
     } else {
         struct timespec tv;
         clock_gettime(CLOCK_REALTIME, &tv);
         for (int i = 0; i < pa->points_len; i++) {
-            if (pa->points[i].ts_flags.bits.ts_sec_set == 0)
+            if (pa->points[i].bits.ts_sec_set == 0)
                 pa->points[i].ts_sec = tv.tv_sec;
-            if (pa->points[i].ts_flags.bits.ts_nsec_set == 0)
+            if (pa->points[i].bits.ts_nsec_set == 0)
                 pa->points[i].ts_nsec = tv.tv_nsec;
             unsigned long long timestamp =
                 pa->points[i].ts_sec * 1e9 +
@@ -108,12 +94,13 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
             TTS_VECTOR_APPEND(ts->columns, record);
         }
     }
+    TTS_SET_RESPONSE_HEADER(&response, TTS_ACK, rc);
     buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
     return TTS_OK;
 }
 
 static void handle_tts_query_single(const struct tts_timeseries *ts,
-                                    struct tts_query_ack *q,
+                                    struct tts_query_response *q,
                                     size_t r_idx, size_t t_idx) {
     unsigned long long t = TTS_VECTOR_AT(ts->timestamps, t_idx);
     struct tts_record *record = TTS_VECTOR_AT(ts->columns, t_idx);
@@ -121,7 +108,7 @@ static void handle_tts_query_single(const struct tts_timeseries *ts,
     q->results[r_idx].ts_sec = t / (unsigned long long) 1e9;
     q->results[r_idx].ts_nsec = t % (unsigned long long) 1e9;
     q->results[r_idx].value = record->value;
-    q->results[r_idx].res_len = record->labels_nr;
+    q->results[r_idx].labels_len = record->labels_nr;
     q->results[r_idx].labels =
         calloc(record->labels_nr, sizeof(*q->results[r_idx].labels));
     for (size_t j = 0; j < record->labels_nr; ++j) {
@@ -135,7 +122,7 @@ static void handle_tts_query_single(const struct tts_timeseries *ts,
 static void handle_tts_query_all(const struct tts_timeseries *ts,
                                  struct tts_packet *p,
                                  ev_buf *buf) {
-    struct tts_query_ack *q = &p->query_ack;
+    struct tts_query_response *q = &p->query_r;
     size_t colsize = TTS_VECTOR_SIZE(ts->timestamps);
     q->results = calloc(colsize, sizeof(*q->results));
     q->len = colsize;
@@ -169,7 +156,7 @@ static void handle_tts_query_range(const struct tts_timeseries *ts,
                                    size_t major_of,
                                    ev_buf *buf) {
     size_t lo_idx = 0UL, hi_idx = 0UL;
-    struct tts_query_ack *q = &p->query_ack;
+    struct tts_query_response *q = &p->query_r;
     get_range_indexes(ts, minor_of, major_of, &lo_idx, &hi_idx);
     unsigned long long range = hi_idx - lo_idx + 1;
     q->results = calloc(range, sizeof(*q->results));
@@ -186,7 +173,7 @@ static void handle_tts_query_one(const struct tts_timeseries *ts,
                                  struct tts_packet *p,
                                  size_t idx,
                                  ev_buf *buf) {
-    struct tts_query_ack *q = &p->query_ack;
+    struct tts_query_response *q = &p->query_r;
     size_t colsize = 1;
     q->results = calloc(colsize, sizeof(*q->results));
     q->len = colsize;
@@ -202,7 +189,7 @@ static void handle_tts_query_mean(const struct tts_timeseries *ts,
                                   size_t lo, size_t hi,
                                   unsigned long long window,
                                   ev_buf *buf) {
-    struct tts_query_ack *q = &p->query_ack;
+    struct tts_query_response *q = &p->query_r;
     long double avg = 0.0;
     unsigned long long t = 0ULL, step = 0LL;
     struct tts_record *record = NULL;
@@ -220,7 +207,7 @@ static void handle_tts_query_mean(const struct tts_timeseries *ts,
             ++j;
         }
         avg /= j;
-        q->results[k].res_len = 0;
+        q->results[k].labels_len = 0;
         q->results[k].rc = TTS_OK;
         q->results[k].ts_sec = t / (unsigned long long) 1e9;
         q->results[k].ts_nsec = t % (unsigned long long) 1e9;
@@ -262,7 +249,7 @@ static void handle_tts_query_mean(const struct tts_timeseries *ts,
 //            ++j;
 //        }
 //        avg /= j;
-//        q->results[k].res_len = 0;
+//        q->results[k].labels_len = 0;
 //        q->results[k].rc = TTS_OK;
 //        q->results[k].ts_sec = step / (unsigned long long) 1e9;
 //        q->results[k].ts_nsec = step % (unsigned long long) 1e9;
@@ -280,17 +267,14 @@ static int handle_tts_query(struct tts_payload *payload) {
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->query.ts_name;
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
-    struct tts_packet response = {
-        .header.byte = TTS_ACK,
-        .ack = (struct tts_ack) {
-            .rc = TTS_OK
-        }
-    };
+    int rc = TTS_OK;
+    struct tts_packet response = {0};
     if (!ts) {
-        response.ack.rc = TTS_NOK;
+        rc = TTS_ENOTS;
+        TTS_SET_RESPONSE_HEADER(&response, TTS_ACK, rc);
         buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
     } else {
-        response.header.byte = TTS_QUERY_RESPONSE;
+        TTS_SET_RESPONSE_HEADER(&response, TTS_QUERY_RESPONSE, rc);
         if (packet->query.byte == TTS_QUERY_ALL_TIMESERIES ||
             packet->query.byte == TTS_QUERY_ALL_TIMESERIES_AVG) {
             if (packet->query.bits.mean == 0) {
@@ -332,11 +316,11 @@ static int handle_tts_query(struct tts_payload *payload) {
 
 int tts_handle_packet(struct tts_payload *payload) {
     int rc = 0;
-    switch (payload->packet.header.byte) {
-        case TTS_CREATE:
+    switch (payload->packet.header.opcode) {
+        case TTS_CREATE_TS:
             rc = handle_tts_create(payload);
             break;
-        case TTS_DELETE:
+        case TTS_DELETE_TS:
             rc = handle_tts_delete(payload);
             break;
         case TTS_ADDPOINTS:

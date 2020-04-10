@@ -89,6 +89,7 @@ static void ts_destroy(struct tts_timeseries *tss) {
             record = TTS_VECTOR_AT(ts->columns, i);
             for (size_t j = 0; j < record->labels_nr; ++j) {
                 free(record->labels[j].field);
+                free(record->labels[j].value);
             }
             free(record->labels);
             free(record);

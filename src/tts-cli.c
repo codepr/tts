@@ -25,6 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define _GNU_SOURCE
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,18 +47,18 @@ static void prompt(tts_client *c) {
 }
 
 static void print_tts_response(const struct tts_packet *tts_p) {
-    if (tts_p->header.byte == TTS_ACK) {
-        printf(tts_p->ack.rc == TTS_OK ? "OK\n" : "NOK\n");
-    } else if (tts_p->header.byte == TTS_QUERY_RESPONSE) {
+    if (tts_p->header.opcode == TTS_ACK) {
+        printf(tts_p->header.status == TTS_OK ? "OK\n" : "NOK\n");
+    } else if (tts_p->header.opcode == TTS_QUERY_RESPONSE) {
         unsigned long long ts = 0ULL;
-        for (size_t i = 0; i < tts_p->query_ack.len; ++i) {
-            ts = tts_p->query_ack.results[i].ts_sec * 1e9 + \
-                 tts_p->query_ack.results[i].ts_nsec;
-            printf("%llu %.4Lf ", ts, tts_p->query_ack.results[i].value);
-            for (size_t j = 0; j < tts_p->query_ack.results[i].res_len; ++j) {
+        for (size_t i = 0; i < tts_p->query_r.len; ++i) {
+            ts = tts_p->query_r.results[i].ts_sec * 1e9 + \
+                 tts_p->query_r.results[i].ts_nsec;
+            printf("%llu %.4Lf ", ts, tts_p->query_r.results[i].value);
+            for (size_t j = 0; j < tts_p->query_r.results[i].res_len; ++j) {
                 printf("%s %s ",
-                       tts_p->query_ack.results[i].labels[j].label,
-                       tts_p->query_ack.results[i].labels[j].value);
+                       tts_p->query_r.results[i].labels[j].label,
+                       tts_p->query_r.results[i].labels[j].value);
             }
             printf("\n");
         }
@@ -83,9 +84,9 @@ int main(int argc, char **argv) {
         tts_client_recv_response(&c, &tts_p);
         (void) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tend);
         print_tts_response(&tts_p);
-        if (tts_p.header.byte == TTS_QUERY_RESPONSE) {
+        if (tts_p.header.opcode == TTS_QUERY_RESPONSE) {
             delta = time_spec_seconds(&tend) - time_spec_seconds(&tstart);
-            printf("%lu results in %lf seconds.\n", tts_p.query_ack.len, delta);
+            printf("%lu results in %lf seconds.\n", tts_p.query_r.len, delta);
         }
     }
     tts_client_destroy(&c);

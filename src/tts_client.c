@@ -99,27 +99,20 @@ static inline long double read_real(char *str) {
 }
 
 static int tts_handle_new(char *line, struct tts_packet *tts_p) {
-    tts_p->header.byte = TTS_CREATE;
-    struct tts_create *create = &tts_p->create;
+    TTS_SET_REQUEST_HEADER(tts_p, TTS_CREATE_TS);
+    struct tts_create_ts *create = &tts_p->create;
     char *token = strtok(line, " ");
     create->ts_name_len = strlen(token);
     create->ts_name = malloc(create->ts_name_len + 1);
     snprintf((char *) create->ts_name, create->ts_name_len + 1, "%s", token);
-    //for (int j = 0; (token = strtok(NULL, " ")); ++j) {
-    //    create->fields = realloc(create->fields,
-    //                             (j + 1) * sizeof(*create->fields));
-    //    create->fields[j].field_len = strlen(token);
-    //    create->fields[j].field = malloc(create->fields[j].field_len + 1);
-    //    snprintf((char *) create->fields[j].field,
-    //             create->fields[j].field_len + 1, "%s", token);
-    //    create->fields_len++;
-    //}
+    token = strtok(NULL, " ");
+    create->retention = token ? atoi(token) : 0;
     return 0;
 }
 
 static int tts_handle_del(char *line, struct tts_packet *tts_p) {
-    tts_p->header.byte = TTS_DELETE;
-    struct tts_delete *drop = &tts_p->drop;
+    TTS_SET_REQUEST_HEADER(tts_p, TTS_DELETE_TS);
+    struct tts_delete_ts *drop = &tts_p->drop;
     char *token = strtok(line, " ");
     drop->ts_name_len = strlen(token);
     drop->ts_name = malloc(drop->ts_name_len + 1);
@@ -128,7 +121,7 @@ static int tts_handle_del(char *line, struct tts_packet *tts_p) {
 }
 
 static int tts_handle_add(char *line, struct tts_packet *tts_p) {
-    tts_p->header.byte = TTS_ADDPOINTS;
+    TTS_SET_REQUEST_HEADER(tts_p, TTS_ADDPOINTS);
     struct tts_addpoints *points = &tts_p->addpoints;
     char *end_str, *end_val, *vals = NULL;
     char *token = strtok_r(line, " ", &end_str);
@@ -149,13 +142,13 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
         j = 0;
         vals = strtok_r(token, " ", &end_val);
         if (strcmp(vals, "*") == 0) {
-            points->points[i].ts_flags.bits.ts_sec_set = 0;
-            points->points[i].ts_flags.bits.ts_nsec_set = 0;
+            points->points[i].bits.ts_sec_set = 0;
+            points->points[i].bits.ts_nsec_set = 0;
         } else {
             unsigned long long n = read_number(vals);
             int len = get_digits(n);
-            points->points[i].ts_flags.bits.ts_sec_set = 1;
-            points->points[i].ts_flags.bits.ts_nsec_set = 1;
+            points->points[i].bits.ts_sec_set = 1;
+            points->points[i].bits.ts_nsec_set = 1;
             if (len == 10)
                 points->points[i].ts_sec = n;
             else if (len == 13)
@@ -191,7 +184,7 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
 }
 
 static int tts_handle_query(char *line, struct tts_packet *tts_p) {
-    tts_p->header.byte = TTS_QUERY;
+    TTS_SET_REQUEST_HEADER(tts_p, TTS_QUERY);
     char *token = strtok(line, " ");
     tts_p->query.ts_name_len = strlen(token);
     tts_p->query.ts_name = malloc(tts_p->query.ts_name_len + 1);
@@ -343,9 +336,12 @@ int tts_client_recv_response(tts_client *client, struct tts_packet *tts_p) {
     uint8_t *ptr = (uint8_t *) client->buf + 1;
     int n = read(client->fd, client->buf, 5);
     unpack_integer(&ptr, 'I', &val);
+    if (val == 0)
+        goto parse;
     n = read(client->fd, client->buf+5, val);
     if (n <= 0)
         return -1;
+parse:
     tts_parse_res(client->buf, tts_p);
     return n;
 }
