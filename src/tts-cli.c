@@ -55,7 +55,7 @@ static void print_tts_response(const struct tts_packet *tts_p) {
             ts = tts_p->query_r.results[i].ts_sec * 1e9 + \
                  tts_p->query_r.results[i].ts_nsec;
             printf("%llu %.4Lf ", ts, tts_p->query_r.results[i].value);
-            for (size_t j = 0; j < tts_p->query_r.results[i].res_len; ++j) {
+            for (size_t j = 0; j < tts_p->query_r.results[i].labels_len; ++j) {
                 printf("%s %s ",
                        tts_p->query_r.results[i].labels[j].label,
                        tts_p->query_r.results[i].labels[j].value);
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     struct tts_packet tts_p;
     double delta = 0.0;
     tts_client c;
-    tts_client_init(&c, "127.0.0.1", 6767);
+    tts_client_init(&c, "127.0.0.1", 19191);
     tts_client_connect(&c);
     struct timespec tstart = {0,0}, tend = {0,0};
     while (1) {

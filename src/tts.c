@@ -35,6 +35,8 @@
 static const char *flag_description[] = {
     "Print this help",
     "Set a configuration file to load and use",
+    "Set an address hostname to listen on",
+    "Set a different port other than 19191",
     "Enable all logs, setting log level to DEBUG",
     "Run in daemon mode"
 };
@@ -42,9 +44,9 @@ static const char *flag_description[] = {
 void print_help(char *me) {
     printf("\ntts v%s Transient Time Series, a lightweight in-memory TSDB\n\n",
            VERSION);
-    printf("Usage: %s [-c conf] [-v|-d|-h]\n\n", me);
-    const char flags[4] = "hcvd";
-    for (int i = 0; i < 4; ++i)
+    printf("Usage: %s [-c conf] [-a addr] [-p port] [-v|-d|-h]\n\n", me);
+    const char flags[6] = "hcapvd";
+    for (int i = 0; i < 6; ++i)
         printf(" -%c: %s\n", flags[i], flag_description[i]);
     printf("\n");
 }
