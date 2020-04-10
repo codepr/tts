@@ -28,6 +28,7 @@
 #ifndef TTS_CONFIG_H
 #define TTS_CONFIG_H
 
+#include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -60,11 +61,12 @@ struct tts_config {
     char certfile[0xFFF];
     /* SSL - Key file location on filesystem */
     char keyfile[0xFFF];
+    /* Application pid */
+    pid_t pid;
 };
 
 extern struct tts_config *conf;
 
-int parse_int(const char *);
 void tts_config_set_default(void);
 void tts_config_print(void);
 bool tts_config_load(const char *);

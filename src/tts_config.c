@@ -74,7 +74,7 @@ static long get_fh_soft_limit(void) {
 
 /* Parse the integer part of a string, by effectively iterate through it and
    converting the numbers found */
-int parse_int(const char *string) {
+static int parse_int(const char *string) {
     int n = 0;
 
     while (*string && isdigit(*string)) {
@@ -264,6 +264,7 @@ void tts_config_set_default(void) {
     config.tcp_backlog = SOMAXCONN;
     config.tls = false;
     config.tls_protocols = EV_TLSvAll;
+    config.pid = getpid();
 }
 
 static void config_print_tls_versions(void) {

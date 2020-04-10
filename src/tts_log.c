@@ -26,6 +26,7 @@
  */
 
 #include <time.h>
+#include <sys/time.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -71,7 +72,10 @@ void tts_log(int level, const char *fmt, ...) {
     char timestr[32];
     time_t now = time(NULL);
     struct tm *utcnow = gmtime(&now);
-    strftime(timestr, 32, "%F %T %Z", utcnow);
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    int pos = strftime(timestr, sizeof(timestr), "%F %T.", utcnow);
+    snprintf(timestr + pos,sizeof(timestr) - pos, "%03d", (int) tv.tv_usec/1000);
 
     va_start(ap, fmt);
     vsnprintf(msg, sizeof(msg), fmt, ap);
@@ -88,9 +92,9 @@ void tts_log(int level, const char *fmt, ...) {
     if (!fp)
         return;
 
-    fprintf(fp, "[%s] %s\n", timestr, msg);
+    fprintf(fp, "[%i %s] %s\n", conf->pid, timestr, msg);
     if (fh)
-        fprintf(fh, "[%s] %s\n", timestr, msg);
+        fprintf(fh, "[%i %s] %s\n", conf->pid, timestr, msg);
 
     if (level == FATAL)
         exit(EXIT_FAILURE);
