@@ -50,8 +50,8 @@ static void on_close(ev_tcp_handle *client, int err) {
 }
 
 static void on_write(ev_tcp_handle *client) {
-    (void) client;
-    log_debug("Written response");
+    log_debug("Written %lu bytes to %s:%i",
+              client->to_write, client->addr, client->port);
 }
 
 static void on_data(ev_tcp_handle *client) {
