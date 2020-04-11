@@ -119,6 +119,7 @@ static inline int timespec_compare(const struct timespec *t1,
     (ts)->retention = (ret);                                        \
     TTS_VECTOR_NEW((ts)->timestamps);                               \
     TTS_VECTOR_NEW((ts)->columns);                                  \
+    (ts)->tags = NULL;                                              \
 } while (0)
 
 #endif

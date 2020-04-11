@@ -98,17 +98,21 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
                         struct tts_tag *tag = malloc(sizeof(*tag));
                         tag->tag_name = (char *) pa->points[i].labels[j].value;
                         TTS_VECTOR_NEW(tag->column);
+                        HASH_ADD_STR(dummy->tag, tag_name, tag);
                         sub = tag;
                     }
                     TTS_VECTOR_APPEND(sub->column, record);
                 } else {
                     struct tts_tag *tag = malloc(sizeof(*tag));
+                    tag->tag = NULL;
                     tag->tag_name = (char *) pa->points[i].labels[j].label;
                     TTS_VECTOR_NEW(tag->column);
+                    HASH_ADD_STR(ts->tags, tag_name, tag);
                     struct tts_tag *sub_tag = malloc(sizeof(*sub_tag));
-                    tag->tag_name = (char *) pa->points[i].labels[j].value;
+                    sub_tag->tag_name = (char *) pa->points[i].labels[j].value;
                     TTS_VECTOR_NEW(sub_tag->column);
                     TTS_VECTOR_APPEND(sub_tag->column, record);
+                    HASH_ADD_STR(tag->tag, tag_name, sub_tag);
                 }
                 record->labels[j].field =
                     (char *) pa->points[i].labels[j].label;

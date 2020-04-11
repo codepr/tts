@@ -98,8 +98,10 @@ static void ts_destroy(struct tts_timeseries *tss) {
         TTS_VECTOR_DESTROY(ts->columns);
         HASH_ITER(hh, ts->tags, tag, ttmp) {
             HASH_DEL(ts->tags, tag);
+            TTS_VECTOR_DESTROY(tag->column);
             HASH_ITER(hh, tag->tag, sub_tag, sub_tmp) {
                 HASH_DEL(tag->tag, sub_tag);
+                TTS_VECTOR_DESTROY(sub_tag->column);
                 free(sub_tag);
             }
             free(tag);
