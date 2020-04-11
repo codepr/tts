@@ -200,6 +200,10 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
     return TTS_OK;
 }
 
+/*
+ * Auxiliary function used to fill query_responses fields reading data from a
+ * single column index on a timeseries
+ */
 static void handle_tts_query_single(const struct tts_timeseries *ts,
                                     struct tts_query_response *q,
                                     size_t r_idx, size_t t_idx) {
@@ -220,6 +224,11 @@ static void handle_tts_query_single(const struct tts_timeseries *ts,
     }
 }
 
+/*
+ * Fill a query_response with all columns present in a timeseries, uses
+ * basically call `handle_tts_query_single` in a loop, producing a *very large*
+ * packet
+ */
 static void handle_tts_query_all(const struct tts_timeseries *ts,
                                  struct tts_packet *p,
                                  ev_buf *buf) {
@@ -235,6 +244,11 @@ static void handle_tts_query_all(const struct tts_timeseries *ts,
     free(q->results);
 }
 
+/*
+ * Ausxiliary function used to retrieve the indexes inside the timeseries
+ * vectors, use binary search to find higher and lower indexes representing
+ * a range of points
+ */
 static void get_range_indexes(const struct tts_timeseries *ts,
                               size_t minor_of, size_t major_of,
                               size_t *lo_idx, size_t *hi_idx) {
@@ -254,6 +268,10 @@ static void get_range_indexes(const struct tts_timeseries *ts,
     }
 }
 
+/*
+ * Query a range of points based on timestamps received. Timestamps are assumed
+ * to be in nanoseconds
+ */
 static void handle_tts_query_range(const struct tts_timeseries *ts,
                                    struct tts_packet *p,
                                    size_t minor_of,
@@ -273,6 +291,10 @@ static void handle_tts_query_range(const struct tts_timeseries *ts,
     free(q->results);
 }
 
+/*
+ * Just fill the query_response packet with a single point from the timeseries
+ * usually needed for FIRST/LAST query results
+ */
 static void handle_tts_query_one(const struct tts_timeseries *ts,
                                  struct tts_packet *p,
                                  size_t idx,
@@ -288,6 +310,11 @@ static void handle_tts_query_one(const struct tts_timeseries *ts,
     free(q->results);
 }
 
+/*
+ * Aggregate results into a query_response packet by applying a time-window
+ * average, from the starting timestamp to the last covered into the mean
+ * bounds
+ */
 static void handle_tts_query_mean(const struct tts_timeseries *ts,
                                   struct tts_packet *p,
                                   size_t lo, size_t hi,
@@ -304,6 +331,10 @@ static void handle_tts_query_mean(const struct tts_timeseries *ts,
         j = 0;
         step = TTS_VECTOR_AT(ts->timestamps, i) + window * 1e6;
         avg = 0;
+        /*
+         * We want to "squash" all points in the window range into a single
+         * average one
+         */
         for (;TTS_VECTOR_AT(ts->timestamps, i) <= step; ++i) {
             t = TTS_VECTOR_AT(ts->timestamps, i);
             record = TTS_VECTOR_AT(ts->columns, i);
@@ -323,6 +354,11 @@ static void handle_tts_query_mean(const struct tts_timeseries *ts,
     free(q->results);
 }
 
+/*
+ * As `handle_tts_query_mean` it aggregate points into a series of mean values
+ * but this time respecting range boundaries specified by the client request,
+ * collecting all inner points on every range-block
+ */
 static void handle_tts_query_mean_r(const struct tts_timeseries *ts,
                                     struct tts_packet *p,
                                     size_t lo, size_t hi,
@@ -336,7 +372,11 @@ static void handle_tts_query_mean_r(const struct tts_timeseries *ts,
     q->results = NULL;
     size_t i = lo, j = 0, k = 0;
     window *= 1e6;
-    //start *= 1e6; window *= 1e6;
+    /*
+     * We want to move as close as possible to the first point, just in case
+     * the lower bound of the range is much lower than the first point of the
+     * timeseries
+     */
     while (TTS_VECTOR_AT(ts->timestamps, lo) > start) {
         if (start + window > TTS_VECTOR_AT(ts->timestamps, lo))
             break;
@@ -348,6 +388,10 @@ static void handle_tts_query_mean_r(const struct tts_timeseries *ts,
         j = 0;
         step += window;
         avg = 0;
+        /*
+         * We want to "squash" all points in the window range into a single
+         * average one
+         */
         for (;TTS_VECTOR_AT(ts->timestamps, i) <= step; ++i) {
             record = TTS_VECTOR_AT(ts->columns, i);
             avg += record->value;
@@ -369,54 +413,69 @@ static void handle_tts_query_mean_r(const struct tts_timeseries *ts,
 static int handle_tts_query(struct tts_payload *payload) {
     ev_buf *buf = payload->buf;
     struct tts_packet *packet = &payload->packet;
+    struct tts_packet response = {0};
     struct tts_timeseries *ts = NULL;
     char *key = (char *) packet->query.ts_name;
+    /*
+     * First check that the timeseries doesn't exists already, returning a
+     * TTS_ENOTS status code in case, as we end having no points to return
+     */
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
-    int rc = TTS_OK;
-    struct tts_packet response = {0};
     if (!ts) {
-        rc = TTS_ENOTS;
-        TTS_SET_RESPONSE_HEADER(&response, TTS_ACK, rc);
+        TTS_SET_RESPONSE_HEADER(&response, TTS_ACK, TTS_ENOTS);
         buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
-    } else {
-        TTS_SET_RESPONSE_HEADER(&response, TTS_QUERY_RESPONSE, rc);
-        if (packet->query.byte == TTS_QUERY_ALL_TIMESERIES ||
-            packet->query.byte == TTS_QUERY_ALL_TIMESERIES_AVG) {
-            if (packet->query.bits.mean == 0) {
-                handle_tts_query_all(ts, &response, buf);
-            } else {
-                size_t hi = TTS_VECTOR_SIZE(ts->timestamps);
-                handle_tts_query_mean(ts, &response, 0, hi,
-                                      packet->query.mean_val, buf);
-            }
+        return TTS_OK;
+    }
+    TTS_SET_RESPONSE_HEADER(&response, TTS_QUERY_RESPONSE, TTS_OK);
+    if (packet->query.byte == TTS_QUERY_ALL_TIMESERIES ||
+        packet->query.byte == TTS_QUERY_ALL_TIMESERIES_AVG) {
+        /*
+         * In this case we want to return all the keyspace (the points of the
+         * timeseries), we just need to check if there's some aggregations
+         * requested (like avg or filters)
+         */
+        if (packet->query.bits.mean == 0) {
+            handle_tts_query_all(ts, &response, buf);
         } else {
-            size_t ts_size = TTS_VECTOR_SIZE(ts->timestamps) - 1;
-            unsigned long long major_of = TTS_VECTOR_AT(ts->timestamps, 0);
-            unsigned long long minor_of = TTS_VECTOR_AT(ts->timestamps, ts_size);
-            if (packet->query.bits.first == 1) {
-                handle_tts_query_one(ts, &response, 0, buf);
-            } else if (packet->query.bits.last == 1) {
-                size_t idx = TTS_VECTOR_SIZE(ts->timestamps) - 1;
-                handle_tts_query_one(ts, &response, idx, buf);
+            size_t hi = TTS_VECTOR_SIZE(ts->timestamps);
+            handle_tts_query_mean(ts, &response, 0, hi,
+                                  packet->query.mean_val, buf);
+        }
+    } else {
+        /*
+         * This branch handle the FIRST LAST and RANGE queries, here as well
+         * we want to check for filters or aggregations requested
+         */
+        size_t ts_size = TTS_VECTOR_SIZE(ts->timestamps) - 1;
+        unsigned long long major_of = TTS_VECTOR_AT(ts->timestamps, 0);
+        unsigned long long minor_of = TTS_VECTOR_AT(ts->timestamps, ts_size);
+        if (packet->query.bits.first == 1) {
+            handle_tts_query_one(ts, &response, 0, buf);
+        } else if (packet->query.bits.last == 1) {
+            size_t idx = TTS_VECTOR_SIZE(ts->timestamps) - 1;
+            handle_tts_query_one(ts, &response, idx, buf);
+        } else {
+            if (packet->query.bits.major_of == 1)
+                major_of = packet->query.major_of;
+            if (packet->query.bits.minor_of == 1)
+                minor_of = packet->query.minor_of;
+            if (packet->query.bits.mean == 0) {
+                handle_tts_query_range(ts, &response, minor_of, major_of, buf);
             } else {
-                if (packet->query.bits.major_of == 1)
-                    major_of = packet->query.major_of;
-                if (packet->query.bits.minor_of == 1)
-                    minor_of = packet->query.minor_of;
-                if (packet->query.bits.mean == 0) {
-                    handle_tts_query_range(ts, &response, minor_of, major_of, buf);
-                } else {
-                    size_t lo_idx = 0UL, hi_idx = 0UL;
-                    get_range_indexes(ts, minor_of, major_of, &lo_idx, &hi_idx);
-                    handle_tts_query_mean_r(ts, &response, lo_idx, hi_idx,
-                                            major_of, packet->query.mean_val, buf);
-                }
+                size_t lo_idx = 0UL, hi_idx = 0UL;
+                get_range_indexes(ts, minor_of, major_of, &lo_idx, &hi_idx);
+                handle_tts_query_mean_r(ts, &response, lo_idx, hi_idx,
+                                        major_of, packet->query.mean_val, buf);
             }
         }
     }
     return TTS_OK;
 }
 
+/*
+ * Main entry-point of the module, just dispatch the payload to the correct
+ * handler, based on the opcode of the request
+ */
 int tts_handle_packet(struct tts_payload *payload) {
     int rc = 0;
     switch (payload->packet.header.opcode) {
