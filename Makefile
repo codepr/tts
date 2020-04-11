@@ -13,4 +13,4 @@ tts-cli: src/tts_protocol.c src/tts_protocol.h src/tts_client.h src/tts_client.c
 	$(CC) $(CFLAGS) src/tts-cli.c src/tts_protocol.c src/tts_client.c src/pack.c -o tts-cli
 
 clean:
-	@rm tts
+	@rm tts tts-cli

@@ -16,3 +16,17 @@ sharing the same timestamp separated by `-` character.
 improved.
 
 Fun-fueled project **not suitable** for production uses.
+
+## Compilation
+
+To compile the project just need make
+
+```sh
+$ make
+```
+
+The CLI as well
+
+```sh
+$ make tts-cli
+```
