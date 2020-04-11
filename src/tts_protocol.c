@@ -243,6 +243,17 @@ static void unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
         len -= unpack_integer(&buf, 'Q', (int64_t *) &q->major_of);
     if (q->bits.minor_of == 1)
         len -= unpack_integer(&buf, 'Q', (int64_t *) &q->minor_of);
+    if (q->bits.filter == 1) {
+        for (int i = 0; len > 0; ++i) {
+            q->filters = realloc(q->filters, (i + 1) * sizeof(*q->filters));
+            len -= unpack_integer(&buf, 'H', &val);
+            q->filters[i].label_len = val;
+            len -= unpack_bytes(&buf, val, q->filters[i].label);
+            len -= unpack_integer(&buf, 'H', &val);
+            q->filters[i].value_len = val;
+            len -= unpack_bytes(&buf, val, q->filters[i].value);
+        }
+    }
 }
 
 /*

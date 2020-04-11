@@ -194,12 +194,19 @@ struct tts_query {
             uint8_t last : 1;
             uint8_t major_of : 1;
             uint8_t minor_of : 1;
-            uint8_t reserved : 3;
+            uint8_t filter : 1;
+            uint8_t reserved : 2;
         } bits;
     };
     uint64_t mean_val;   // present only if mean = 1
     uint64_t major_of;   // present only if major_of = 1
     uint64_t minor_of;   // present only if minor_of = 1
+    struct {
+        uint16_t label_len;
+        uint8_t *label;
+        uint16_t value_len;
+        uint8_t *value;
+    } *filters;
 };
 
 /*

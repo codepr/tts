@@ -88,7 +88,7 @@ static inline long long read_number(char *str) {
 
 static inline long double read_real(char *str) {
     char *nul = NULL;
-    long long n = strtold(str, &nul);
+    long double n = strtold(str, &nul);
     if (*nul != '\0' || nul == str)
         return TTS_CLIENT_FAILURE;
     return n;
