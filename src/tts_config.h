@@ -51,16 +51,6 @@ struct tts_config {
     char logpath[0xFFF];
     /* TCP backlog size */
     int tcp_backlog;
-    /* TLS flag */
-    bool tls;
-    /* TLS protocol version */
-    int tls_protocols;
-    /* Certificate authority file path */
-    char cafile[0xFFF];
-    /* SSL - Cert file location on filesystem */
-    char certfile[0xFFF];
-    /* SSL - Key file location on filesystem */
-    char keyfile[0xFFF];
     /* Application pid */
     pid_t pid;
 };

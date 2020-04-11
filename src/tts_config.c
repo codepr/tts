@@ -84,19 +84,6 @@ static int parse_int(const char *string) {
     return n;
 }
 
-static int parse_config_tls_protocols(char *token) {
-    int protocols = 0;
-    if (STREQ(token, "tlsv1_1", 7) == true)
-        protocols |= EV_TLSv1_1;
-    else if (STREQ(token, "tlsv1_2", 7) == true)
-        protocols |= EV_TLSv1_2;
-    else if (STREQ(token, "tlsv1_3", 7) == true)
-        protocols |= EV_TLSv1_3;
-    else if (STREQ(token, "tlsv1", 5) == true)
-        protocols |= EV_TLSv1;
-    return protocols;
-}
-
 /* Set configuration values based on what is read from the persistent
    configuration on disk */
 static void add_config_value(const char *key, const char *value) {
@@ -114,25 +101,6 @@ static void add_config_value(const char *key, const char *value) {
     } else if (STREQ("tcp_backlog", key, klen) == true) {
         int tcp_backlog = parse_int(value);
         config.tcp_backlog = tcp_backlog <= SOMAXCONN ? tcp_backlog : SOMAXCONN;
-    } else if (STREQ("cafile", key, klen) == true) {
-        config.tls = true;
-        strcpy(config.cafile, value);
-    } else if (STREQ("certfile", key, klen) == true) {
-        strcpy(config.certfile, value);
-    } else if (STREQ("keyfile", key, klen) == true) {
-        strcpy(config.keyfile, value);
-    } else if (STREQ("tls_protocols", key, klen) == true) {
-        if (vlen == 0) return;
-        config.tls_protocols = 0;
-        char *token = strtok((char *) value, ",");
-        if (!token) {
-            config.tls_protocols = parse_config_tls_protocols((char *) value);
-        } else {
-            while (token) {
-                config.tls_protocols |= parse_config_tls_protocols(token);
-                token = strtok(NULL, ",");
-            }
-        }
     }
 }
 
@@ -262,32 +230,7 @@ void tts_config_set_default(void) {
     config.loglevel = DEFAULT_LOG_LEVEL;
     memset(config.logpath, 0x00, 0xFFF);
     config.tcp_backlog = SOMAXCONN;
-    config.tls = false;
-    config.tls_protocols = EV_TLSvAll;
     config.pid = getpid();
-}
-
-static void config_print_tls_versions(void) {
-    char protocols[64] = {0};
-    int pos = 0;
-    if (config.tls_protocols & EV_TLSv1) {
-        strncpy(protocols, "TLSv1, ", 64);
-        pos += 7;
-    }
-    if (config.tls_protocols & EV_TLSv1_1) {
-        strncpy(protocols + pos, "TLSv1_1, ", 64 - pos);
-        pos += 9;
-    }
-    if (config.tls_protocols & EV_TLSv1_2) {
-        strncpy(protocols + pos, "TLSv1_2, ", 64 - pos);
-        pos += 9;
-    }
-    if (config.tls_protocols & EV_TLSv1_3) {
-        strncpy(protocols + pos, "TLSv1_3, ", 64 - pos);
-        pos += 9;
-    }
-    protocols[pos - 2] = '\0';
-    log_info("\tTLS: %s", protocols);
 }
 
 void tts_config_print(void) {
@@ -299,9 +242,7 @@ void tts_config_print(void) {
     log_info("tts v%s is starting", VERSION);
     log_info("Network settings:");
     log_info("\tTcp backlog: %d", config.tcp_backlog);
-    if (config.tls == true) config_print_tls_versions();
     log_info("\tFile handles soft limit: %li", get_fh_soft_limit());
-    if (config.tls == true) config_print_tls_versions();
     log_info("Logging:");
     log_info("\tlevel: %s", llevel);
     if (config.logpath[0])
