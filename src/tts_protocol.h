@@ -79,6 +79,7 @@ enum {
 enum {
     TTS_OK = 0x00,
     TTS_ENOTS,       // Not found error, generally a timeseries
+    TTS_EEXIST,      // The timeseries already exists
     TTS_UNKNOWN_CMD, // Unknown command error
     TTS_EOOM         // Out of memory error
 };

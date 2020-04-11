@@ -26,15 +26,27 @@
  */
 
 #define _GNU_SOURCE
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <netdb.h>
-#include <fcntl.h>
-#include <sys/socket.h>
+#include <unistd.h>
 #include "tts_client.h"
 #include "tts_protocol.h"
+
+#define LOCALHOST    "127.0.0.1"
+#define DEFAULT_PORT 19191
+
+static const char *flag_description[] = {
+    "Print this help",
+    "Set an address hostname to listen on",
+    "Set a different port other than 19191",
+};
+
+void print_help(char *me) {
+    printf("\ntts - Transient Time Series CLI\n\n");
+    printf("Usage: %s [-a addr] [-p port] [-h]\n\n", me);
+    const char flags[3] = "hap";
+    for (int i = 0; i < 3; ++i)
+        printf(" -%c: %s\n", flags[i], flag_description[i]);
+    printf("\n");
+}
 
 static double time_spec_seconds(struct timespec* ts) {
     return (double) ts->tv_sec + (double) ts->tv_nsec * 1.0e-9;
@@ -44,9 +56,17 @@ static void prompt(tts_client *c) {
     printf("%s:%i> ", c->host, c->port);
 }
 
+static const char *errors_description[] = {
+    "OK",
+    "NOK - Timeseries doesn't exist",
+    "NOK - Timeseries already exists",
+    "NOK - Server rejected command: unknown command",
+    "NOK - Server rejected command: Out of memory"
+};
+
 static void print_tts_response(const struct tts_packet *tts_p) {
     if (tts_p->header.opcode == TTS_ACK) {
-        printf(tts_p->header.status == TTS_OK ? "OK\n" : "NOK\n");
+        printf("%s\n", errors_description[tts_p->header.status]);
     } else if (tts_p->header.opcode == TTS_QUERY_RESPONSE) {
         unsigned long long ts = 0ULL;
         for (size_t i = 0; i < tts_p->query_r.len; ++i) {
@@ -64,15 +84,34 @@ static void print_tts_response(const struct tts_packet *tts_p) {
 }
 
 int main(int argc, char **argv) {
-    (void) argc;
-    (void) argv;
+    int opt, port = DEFAULT_PORT;
+    char *host = LOCALHOST;
     size_t line_len = 0LL;
     char *line = NULL;
     struct tts_packet tts_p;
     double delta = 0.0;
+    while ((opt = getopt(argc, argv, "h:a:p:h:")) != -1) {
+        switch (opt) {
+            case 'a':
+                host = optarg;
+                break;
+            case 'p':
+                port = atoi(optarg);
+                break;
+            case 'h':
+                print_help(argv[0]);
+                exit(EXIT_SUCCESS);
+            default:
+                fprintf(stderr, "Usage: %s [-a addr] [-p port] [-h]\n",
+                        argv[0]);
+                exit(EXIT_FAILURE);
+        }
+    }
+
     tts_client c;
-    tts_client_init(&c, "127.0.0.1", 19191);
-    tts_client_connect(&c);
+    tts_client_init(&c, host, port);
+    if (tts_client_connect(&c) < 0)
+        exit(EXIT_FAILURE);
     struct timespec tstart = {0,0}, tend = {0,0};
     while (1) {
         prompt(&c);

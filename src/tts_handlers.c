@@ -44,7 +44,7 @@ static int handle_tts_create(struct tts_payload *payload) {
      */
     HASH_FIND_STR(payload->tts_db->timeseries, key, ts);
     if (ts) {
-        rc = TTS_ENOTS;
+        rc = TTS_EEXIST;
         log_debug("Timeseries \"%s\" exists already", c->ts_name);
     } else {
         /* If it does not exist we just create it and add to the global DB */

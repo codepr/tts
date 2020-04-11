@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
     // Set default configuration
     tts_config_set_default();
 
-    while ((opt = getopt(argc, argv, "c:vhd:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:a:p:vhd:")) != -1) {
         switch (opt) {
             case 'a':
                 host = optarg;
