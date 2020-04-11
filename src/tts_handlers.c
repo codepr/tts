@@ -71,6 +71,7 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
         rc = TTS_ENOTS;
     } else {
         struct timespec tv;
+        struct tts_tag *dummy = NULL, *sub = NULL;
         clock_gettime(CLOCK_REALTIME, &tv);
         for (int i = 0; i < pa->points_len; i++) {
             if (pa->points[i].bits.ts_sec_set == 0)
@@ -82,11 +83,33 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
                 pa->points[i].ts_nsec;
             TTS_VECTOR_APPEND(ts->timestamps, timestamp);
             struct tts_record *record = malloc(sizeof(*record));
+            record->index = TTS_VECTOR_SIZE(ts->timestamps);
             record->value = pa->points[i].value;
             record->labels_nr = pa->points[i].labels_len;
             record->labels = calloc(pa->points[i].labels_len,
                                     sizeof(*record->labels));
             for (int j = 0; j < pa->points[i].labels_len; ++j) {
+                HASH_FIND_STR(ts->tags, (char *)
+                              pa->points[i].labels[j].label, dummy);
+                if (dummy) {
+                    HASH_FIND_STR(dummy->tag, (char *)
+                                  pa->points[i].labels[j].value, sub);
+                    if (!sub) {
+                        struct tts_tag *tag = malloc(sizeof(*tag));
+                        tag->tag_name = (char *) pa->points[i].labels[j].value;
+                        TTS_VECTOR_NEW(tag->column);
+                        sub = tag;
+                    }
+                    TTS_VECTOR_APPEND(sub->column, record);
+                } else {
+                    struct tts_tag *tag = malloc(sizeof(*tag));
+                    tag->tag_name = (char *) pa->points[i].labels[j].label;
+                    TTS_VECTOR_NEW(tag->column);
+                    struct tts_tag *sub_tag = malloc(sizeof(*sub_tag));
+                    tag->tag_name = (char *) pa->points[i].labels[j].value;
+                    TTS_VECTOR_NEW(sub_tag->column);
+                    TTS_VECTOR_APPEND(sub_tag->column, record);
+                }
                 record->labels[j].field =
                     (char *) pa->points[i].labels[j].label;
                 record->labels[j].value = pa->points[i].labels[j].value;

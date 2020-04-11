@@ -81,10 +81,11 @@ static void on_connection(ev_tcp_handle *server) {
 
 static void ts_destroy(struct tts_timeseries *tss) {
     struct tts_timeseries *ts, *tmp;
+    struct tts_record *record = NULL;
+    struct tts_tag *tag, *ttmp, *sub_tag, *sub_tmp;
     HASH_ITER(hh, tss, ts, tmp) {
         HASH_DEL(tss, ts);
         TTS_VECTOR_DESTROY(ts->timestamps);
-        struct tts_record *record = NULL;
         for (size_t i = 0; i < TTS_VECTOR_SIZE(ts->columns); ++i) {
             record = TTS_VECTOR_AT(ts->columns, i);
             for (size_t j = 0; j < record->labels_nr; ++j) {
@@ -95,6 +96,14 @@ static void ts_destroy(struct tts_timeseries *tss) {
             free(record);
         }
         TTS_VECTOR_DESTROY(ts->columns);
+        HASH_ITER(hh, ts->tags, tag, ttmp) {
+            HASH_DEL(ts->tags, tag);
+            HASH_ITER(hh, tag->tag, sub_tag, sub_tmp) {
+                HASH_DEL(tag->tag, sub_tag);
+                free(sub_tag);
+            }
+            free(tag);
+        }
         free(ts);
     }
 }

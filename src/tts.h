@@ -41,12 +41,24 @@
  * column
  */
 struct tts_record {
+    size_t index;
     long double value;
     unsigned char labels_nr;
     struct {
         char *field;
         void *value;
     } *labels;
+};
+
+/*
+ * Tags structure, used to track secondary tags defined by label fields on
+ * timeseries, each tag carries a multi-level hashmap to track them
+ */
+struct tts_tag {
+    char *tag_name;
+    TTS_VECTOR(struct tts_record *) column;
+    struct tts_tag *tag;
+    UT_hash_handle hh;
 };
 
 /*
@@ -67,6 +79,7 @@ struct tts_timeseries {
     char name[TTS_TS_NAME_MAX_LENGTH];
     TTS_VECTOR(unsigned long long) timestamps;
     TTS_VECTOR(struct tts_record *) columns;
+    struct tts_tag *tags;
     UT_hash_handle hh;
 };
 
