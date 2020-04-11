@@ -114,6 +114,10 @@ static inline int timespec_compare(const struct timespec *t1,
     return -1;
 }
 
+/*
+ * Init a timeseries structure pointer, do not pass functions as arguments,
+ * they will be evaluated multiple times inside the macro
+ */
 #define TTS_TIMESERIES_INIT(ts, ts_name, ret) do {                  \
     snprintf((ts)->name, TTS_TS_NAME_MAX_LENGTH, "%s", (ts_name));  \
     (ts)->retention = (ret);                                        \
@@ -122,6 +126,11 @@ static inline int timespec_compare(const struct timespec *t1,
     (ts)->tags = NULL;                                              \
 } while (0)
 
+/*
+ * Destroy a timeseries structure pointer, releasing every memory allocated
+ * pointer and vectors, do not pass functions as arguments, they will be
+ * evaluated multiple times inside the macro
+ */
 #define TTS_TIMESERIES_DESTROY(ts) do {                         \
     struct tts_record *record = NULL;                           \
     struct tts_tag *tag, *ttmp, *sub_tag, *sub_tmp;             \

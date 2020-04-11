@@ -78,7 +78,10 @@ int main(int argc, char **argv) {
         prompt(&c);
         getline(&line, &line_len, stdin);
         (void) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tstart);
-        tts_client_send_command(&c, line);
+        if (tts_client_send_command(&c, line) == TTS_CLIENT_FAILURE) {
+            printf("Unknown command or malformed one\n");
+            continue;
+        }
         tts_client_recv_response(&c, &tts_p);
         (void) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tend);
         print_tts_response(&tts_p);

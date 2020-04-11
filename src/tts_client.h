@@ -30,6 +30,9 @@
 
 #include <stdio.h>
 
+#define TTS_CLIENT_SUCCESS  0
+#define TTS_CLIENT_FAILURE -1
+
 struct tts_packet;
 
 typedef struct tts_client tts_client;
