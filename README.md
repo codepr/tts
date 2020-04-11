@@ -30,3 +30,24 @@ The CLI as well
 ```sh
 $ make tts-cli
 ```
+
+## Some more details
+
+Under the hood the basics are pretty simple, there're 2 main data-structures
+involved:
+
+- *dynamic arrays*
+- *hashmap*
+
+Once a timeseries is created, the trend it represents (the points) is stored in
+a pair of vectors, one dedicated to timestamps and the other to the records,
+which are comprised of a `long double` typed value and a list of optional
+labels. These vectors maps directly one-another and they're sorted by design,
+allowing to leverage binary search to query ranges and single values.
+
+Each timeseries is stored into a global index represented by a general hashmap.
+A reference to the labels is also inserted into a multilevel hashmap related to
+the timeseries itself, the mapping is based on the labels nominative and their
+value. Shortly speaking each label name defines an hashmap, and each label
+value define a sub-hashmap as entry of the label hashmap itself. This way it's
+fairly easy to index labels and use them to filter out results.
