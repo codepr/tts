@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/un.h>
 #include <sys/socket.h>
 #include "pack.h"
 #include "tts_protocol.h"
@@ -281,31 +282,46 @@ static ssize_t tts_parse_res(char *res, struct tts_packet *tts_p) {
  * Create a non-blocking socket and use it to connect to the specified host and
  * port
  */
-static int tts_connect(const char *host, int port) {
-
-    struct sockaddr_in serveraddr;
-    struct hostent *server;
+static int tts_connect(const struct tts_connect_options *opts) {
 
     /* socket: create the socket */
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    int fd = socket(opts->s_family, SOCK_STREAM, 0);
     if (fd < 0)
         goto err;
 
-    /* gethostbyname: get the server's DNS entry */
-    server = gethostbyname(host);
-    if (server == NULL)
-        goto err;
+    if (opts->s_family == AF_INET) {
+        struct sockaddr_in addr;
+        struct hostent *server;
 
-    /* build the server's address */
-    serveraddr.sin_family = AF_INET;
-    serveraddr.sin_port = htons(port);
-    serveraddr.sin_addr = *((struct in_addr *) server->h_addr);
-    bzero(&(serveraddr.sin_zero), 8);
+        /* gethostbyname: get the server's DNS entry */
+        server = gethostbyname(opts->s_addr);
+        if (server == NULL)
+            goto err;
 
-    /* connect: create a connection with the server */
-    if (connect(fd, (const struct sockaddr *) &serveraddr,
-                sizeof(serveraddr)) < 0)
-        goto err;
+        /* build the server's address */
+        addr.sin_family = opts->s_family;
+        addr.sin_port = htons(opts->s_port);
+        addr.sin_addr = *((struct in_addr *) server->h_addr);
+        bzero(&(addr.sin_zero), 8);
+
+        /* connect: create a connection with the server */
+        if (connect(fd, (const struct sockaddr *) &addr, sizeof(addr)) == -1)
+            goto err;
+
+    } else if (opts->s_family == AF_UNIX) {
+        struct sockaddr_un addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sun_family = AF_UNIX;
+        if (*opts->s_addr == '\0') {
+            *addr.sun_path = '\0';
+            strncpy(addr.sun_path+1, opts->s_addr+1, sizeof(addr.sun_path)-2);
+        } else {
+            strncpy(addr.sun_path, opts->s_addr, sizeof(addr.sun_path)-1);
+        }
+
+        if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
+            goto err;
+    }
 
     return fd;
 
@@ -318,12 +334,12 @@ err:
     return TTS_CLIENT_FAILURE;
 }
 
-void tts_client_init(tts_client *client, const char *host, int port) {
+void tts_client_init(tts_client *client,
+                     const struct tts_connect_options * opts) {
     client->buf = malloc(BUFSIZE);
     client->bufsize = 0;
     client->capacity = BUFSIZE;
-    client->host = (char *) host;
-    client->port = port;
+    client->opts = opts;
 }
 
 void tts_client_destroy(tts_client *client) {
@@ -331,7 +347,7 @@ void tts_client_destroy(tts_client *client) {
 }
 
 int tts_client_connect(tts_client *client) {
-    int fd = tts_connect(client->host, client->port);
+    int fd = tts_connect(client->opts);
     if (fd < 0)
         return TTS_CLIENT_FAILURE;
     client->fd = fd;

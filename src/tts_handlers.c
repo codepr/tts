@@ -114,17 +114,19 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
      * in case, trim timestamps and points vector according to the maximum age
      * allowed
      */
+    if (TTS_VECTOR_SIZE(ts->timestamps) > 0) {
     tts_timestamp first = TTS_VECTOR_FIRST(ts->timestamps);
-    tts_timestamp last = TTS_VECTOR_LAST(ts->timestamps);
-    if (ts->retention != 0 && (last - first) > ts->retention) {
-        size_t idx = 0;
-        timestamp = last - ts->retention;
-        TTS_VECTOR_BINSEARCH(ts->timestamps, timestamp, &idx);
-        struct tts_record *r = TTS_VECTOR_AT(ts->columns, idx);
-        TTS_TIMESERIES_REMOVE_RECORD(ts, r);
-        TTS_VECTOR_RESIZE(ts->timestamps, idx);
-        TTS_VECTOR_RESIZE(ts->columns, idx);
-        free(r);
+        tts_timestamp last = TTS_VECTOR_LAST(ts->timestamps);
+        if (ts->retention != 0 && (last - first) > ts->retention) {
+            size_t idx = 0;
+            timestamp = last - ts->retention;
+            TTS_VECTOR_BINSEARCH(ts->timestamps, timestamp, &idx);
+            struct tts_record *r = TTS_VECTOR_AT(ts->columns, idx);
+            TTS_TIMESERIES_REMOVE_RECORD(ts, r);
+            TTS_VECTOR_RESIZE(ts->timestamps, idx);
+            TTS_VECTOR_RESIZE(ts->columns, idx);
+            free(r);
+        }
     }
     /*
      * As it's possible to insert multiple points with the same timestamp, we
@@ -448,17 +450,19 @@ static int handle_tts_query(struct tts_payload *payload) {
      * in case, trim timestamps and points vector according to the maximum age
      * allowed
      */
-    tts_timestamp first = TTS_VECTOR_FIRST(ts->timestamps);
-    tts_timestamp last = TTS_VECTOR_LAST(ts->timestamps);
-    if (ts->retention != 0 && (last - first) > ts->retention) {
-        size_t idx = 0;
-        tts_timestamp timestamp = last - ts->retention;
-        TTS_VECTOR_BINSEARCH(ts->timestamps, timestamp, &idx);
-        struct tts_record *r = TTS_VECTOR_AT(ts->columns, idx);
-        TTS_TIMESERIES_REMOVE_RECORD(ts, r);
-        TTS_VECTOR_RESIZE(ts->timestamps, idx);
-        TTS_VECTOR_RESIZE(ts->columns, idx);
-        free(r);
+    if (TTS_VECTOR_SIZE(ts->timestamps) > 0) {
+        tts_timestamp first = TTS_VECTOR_FIRST(ts->timestamps);
+        tts_timestamp last = TTS_VECTOR_LAST(ts->timestamps);
+        if (ts->retention != 0 && (last - first) > ts->retention) {
+            size_t idx = 0;
+            tts_timestamp timestamp = last - ts->retention;
+            TTS_VECTOR_BINSEARCH(ts->timestamps, timestamp, &idx);
+            struct tts_record *r = TTS_VECTOR_AT(ts->columns, idx);
+            TTS_TIMESERIES_REMOVE_RECORD(ts, r);
+            TTS_VECTOR_RESIZE(ts->timestamps, idx);
+            TTS_VECTOR_RESIZE(ts->columns, idx);
+            free(r);
+        }
     }
     TTS_SET_RESPONSE_HEADER(&response, TTS_QUERY_RESPONSE, TTS_OK);
     if (packet->query.byte == TTS_QUERY_ALL_TIMESERIES ||

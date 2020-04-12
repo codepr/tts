@@ -35,17 +35,26 @@
 
 static const char *flag_description[] = {
     "Print this help",
+    "Set the execution mode, the connection to use, accepts inet|unix",
     "Set an address hostname to listen on",
     "Set a different port other than 19191",
 };
 
-void print_help(char *me) {
+static void print_help(const char *me) {
     printf("\ntts - Transient Time Series CLI\n\n");
-    printf("Usage: %s [-a addr] [-p port] [-h]\n\n", me);
-    const char flags[3] = "hap";
-    for (int i = 0; i < 3; ++i)
+    printf("Usage: %s [-a addr] [-p port] [-m mode] [-h]\n\n", me);
+    const char flags[4] = "hmap";
+    for (int i = 0; i < 4; ++i)
         printf(" -%c: %s\n", flags[i], flag_description[i]);
     printf("\n");
+}
+
+static int modetoi(const char *str) {
+    if (strcasecmp(str, "inet") == 0)
+        return AF_INET;
+    if (strcasecmp(str, "unix") == 0)
+        return AF_UNIX;
+    return -1;
 }
 
 static double time_spec_seconds(struct timespec* ts) {
@@ -53,7 +62,10 @@ static double time_spec_seconds(struct timespec* ts) {
 }
 
 static void prompt(tts_client *c) {
-    printf("%s:%i> ", c->host, c->port);
+    if (c->opts->s_family == AF_INET)
+        printf("%s:%i> ", c->opts->s_addr, c->opts->s_port);
+    else if (c->opts->s_family == AF_UNIX)
+        printf("%s> ", c->opts->s_addr);
 }
 
 static const char *errors_description[] = {
@@ -84,14 +96,22 @@ static void print_tts_response(const struct tts_packet *tts_p) {
 }
 
 int main(int argc, char **argv) {
-    int opt, port = DEFAULT_PORT;
+    int opt, port = DEFAULT_PORT, mode = AF_INET;
     char *host = LOCALHOST;
     size_t line_len = 0LL;
     char *line = NULL;
     struct tts_packet tts_p;
     double delta = 0.0;
-    while ((opt = getopt(argc, argv, "h:a:p:h:")) != -1) {
+    while ((opt = getopt(argc, argv, "h:m:a:p:h:")) != -1) {
         switch (opt) {
+            case 'm':
+                mode = modetoi(optarg);
+                if (mode == -1) {
+                    fprintf(stderr, "Unknown mode '%s'\n", optarg);
+                    print_help(argv[0]);
+                    exit(EXIT_FAILURE);
+                }
+                break;
             case 'a':
                 host = optarg;
                 break;
@@ -102,14 +122,18 @@ int main(int argc, char **argv) {
                 print_help(argv[0]);
                 exit(EXIT_SUCCESS);
             default:
-                fprintf(stderr, "Usage: %s [-a addr] [-p port] [-h]\n",
-                        argv[0]);
+                print_help(argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
 
     tts_client c;
-    tts_client_init(&c, host, port);
+    struct tts_connect_options conn_opts;
+    memset(&conn_opts, 0x00, sizeof(conn_opts));
+    conn_opts.s_family = mode;
+    conn_opts.s_addr = host;
+    conn_opts.s_port = port;
+    tts_client_init(&c, &conn_opts);
     if (tts_client_connect(&c) < 0)
         exit(EXIT_FAILURE);
     struct timespec tstart = {0,0}, tend = {0,0};

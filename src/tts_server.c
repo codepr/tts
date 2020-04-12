@@ -32,6 +32,7 @@
 #define EV_TCP_SOURCE
 #include "ev_tcp.h"
 #include "tts_log.h"
+#include "tts_config.h"
 #include "tts_server.h"
 #include "tts_handlers.h"
 #include "tts_protocol.h"
@@ -88,12 +89,16 @@ static void ts_destroy(struct tts_timeseries *tss) {
 }
 
 int tts_start_server(const char *host, int port) {
+    int err = 0;
     tts_server.db = malloc(sizeof(struct tts_database));
     tts_server.db->timeseries = NULL;
     ev_context *ctx = ev_get_ev_context();
     ev_tcp_server server;
     ev_tcp_server_init(&server, ctx, BACKLOG);
-    int err = ev_tcp_server_listen(&server, host, port, on_connection);
+    if (conf->mode == TTS_AF_INET)
+        err = ev_tcp_server_listen(&server, host, port, on_connection);
+    else if (conf->mode == TTS_AF_UNIX)
+        err = ev_tcp_server_listen_unix(&server, conf->host, on_connection);
     if (err < 0) {
         if (err == -1)
             log_fatal("Error occured: %s\n", strerror(errno));

@@ -35,7 +35,7 @@
 static const char *flag_description[] = {
     "Print this help",
     "Set a configuration file to load and use",
-    "Set the execution mode, the connection to use, accepts tcp|unix",
+    "Set the execution mode, the connection to use, accepts inet|unix",
     "Set an address hostname to listen on",
     "Set a different port other than 19191",
     "Enable all logs, setting log level to DEBUG",
@@ -53,7 +53,7 @@ static void print_help(const char *me) {
 }
 
 static int modetoi(const char *str) {
-    if (strcasecmp(str, "tcp") == 0)
+    if (strcasecmp(str, "inet") == 0)
         return TTS_AF_INET;
     if (strcasecmp(str, "unix") == 0)
         return TTS_AF_UNIX;
@@ -62,7 +62,7 @@ static int modetoi(const char *str) {
 
 int main(int argc, char **argv) {
     char *confpath = DEFAULT_CONF_PATH, *host = DEFAULT_HOSTNAME;
-    int debug = 0, daemon = 0, port = DEFAULT_PORT, mode = DEFAULT_PORT;
+    int debug = 0, daemon = 0, port = DEFAULT_PORT, mode = DEFAULT_MODE;
     int opt;
 
     // Set default configuration

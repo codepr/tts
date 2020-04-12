@@ -253,7 +253,7 @@ void tts_config_print(void) {
     }
     log_info("tts v%s is starting", VERSION);
     log_info("Network settings:");
-    log_info("\tSocket family: %s", config.mode == TTS_AF_INET ? "TCP" : "UNIX");
+    log_info("\tSocket family: %s", config.mode == TTS_AF_INET ? "INET" : "UNIX");
     log_info("\tListening on: %s:%i", config.host, config.port);
     log_info("\tTcp backlog: %d", config.tcp_backlog);
     log_info("\tFile handles soft limit: %li", get_fh_soft_limit());

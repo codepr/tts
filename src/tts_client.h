@@ -29,6 +29,7 @@
 #define TTS_CLIENT_H
 
 #include <stdio.h>
+#include <netdb.h>
 
 #define TTS_CLIENT_SUCCESS  0
 #define TTS_CLIENT_FAILURE -1
@@ -37,16 +38,22 @@ struct tts_packet;
 
 typedef struct tts_client tts_client;
 
+struct tts_connect_options {
+    int timeout;
+    int s_family;
+    int s_port;
+    char *s_addr;
+};
+
 struct tts_client {
     int fd;
-    int port;
-    char *host;
+    const struct tts_connect_options *opts;
     size_t bufsize;
     size_t capacity;
     char *buf;
 };
 
-void tts_client_init(tts_client *, const char *, int);
+void tts_client_init(tts_client *, const struct tts_connect_options *);
 void tts_client_destroy(tts_client *);
 int tts_client_connect(tts_client *);
 void tts_client_disconnect(tts_client *);
