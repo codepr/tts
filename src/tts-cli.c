@@ -26,6 +26,7 @@
  */
 
 #define _GNU_SOURCE
+#include <errno.h>
 #include <unistd.h>
 #include "tts_client.h"
 #include "tts_protocol.h"
@@ -47,6 +48,18 @@ static void print_help(const char *me) {
     for (int i = 0; i < 4; ++i)
         printf(" -%c: %s\n", flags[i], flag_description[i]);
     printf("\n");
+}
+
+static const char *cmd_usage(const char *cmd) {
+    if (strncasecmp(cmd, "create", 6) == 0)
+        return "CREATE timeseries-name [retention]";
+    if (strncasecmp(cmd, "delete", 6) == 0)
+        return "DELETE timeseries-name";
+    if (strncasecmp(cmd, "add", 3) == 0)
+        return "ADD timeseries-name timestamp|* value [label value ..] - ..";
+    if (strncasecmp(cmd, "query", 5) == 0)
+        return "QUERY timeseries-name [>|<|RANGE] start_timestamp [end_timestamp] [AVG value]";
+    return NULL;
 }
 
 static int modetoi(const char *str) {
@@ -136,13 +149,22 @@ int main(int argc, char **argv) {
     tts_client_init(&c, &conn_opts);
     if (tts_client_connect(&c) < 0)
         exit(EXIT_FAILURE);
+    int err = 0;
     struct timespec tstart = {0,0}, tend = {0,0};
     while (1) {
         prompt(&c);
         getline(&line, &line_len, stdin);
         (void) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tstart);
-        if (tts_client_send_command(&c, line) == TTS_CLIENT_FAILURE) {
-            printf("Unknown command or malformed one\n");
+        err = tts_client_send_command(&c, line);
+        if (err < 0) {
+            if (err == TTS_CLIENT_UNKNOWN_CMD) {
+                printf("Unknown command or malformed one\n");
+                const char *usage = cmd_usage(line);
+                if (usage)
+                    printf("\nSuggesed usage: %s\n\n", usage);
+            } else if (err == TTS_CLIENT_FAILURE) {
+                printf("Couldn't send the command: %s\n", strerror(errno));
+            }
             continue;
         }
         tts_client_recv_response(&c, &tts_p);

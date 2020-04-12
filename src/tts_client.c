@@ -43,21 +43,21 @@
 
 typedef int (*tts_cmd_handler)(char *, struct tts_packet *);
 
-static int tts_handle_new(char *, struct tts_packet *);
-static int tts_handle_del(char *, struct tts_packet *);
+static int tts_handle_create(char *, struct tts_packet *);
+static int tts_handle_delete(char *, struct tts_packet *);
 static int tts_handle_add(char *, struct tts_packet *);
 static int tts_handle_query(char *, struct tts_packet *);
 
 static const char *cmds[COMMANDS_NR] = {
-    "new",
-    "del",
+    "create",
+    "delete",
     "add",
     "query"
 };
 
 static tts_cmd_handler handlers[4] = {
-    tts_handle_new,
-    tts_handle_del,
+    tts_handle_create,
+    tts_handle_delete,
     tts_handle_add,
     tts_handle_query
 };
@@ -103,14 +103,14 @@ static inline long double read_real(const char *str) {
     return n;
 }
 
-static int tts_handle_new(char *line, struct tts_packet *tts_p) {
+static int tts_handle_create(char *line, struct tts_packet *tts_p) {
     if (count_tokens(line, ' ') < 1)
-        return TTS_CLIENT_FAILURE;
+        return TTS_CLIENT_UNKNOWN_CMD;
     TTS_SET_REQUEST_HEADER(tts_p, TTS_CREATE_TS);
     struct tts_create_ts *create = &tts_p->create;
     char *token = strtok(line, " ");
     if (!token)
-        return TTS_CLIENT_FAILURE;
+        return TTS_CLIENT_UNKNOWN_CMD;
     create->ts_name_len = strlen(token);
     create->ts_name = malloc(create->ts_name_len + 1);
     snprintf((char *) create->ts_name, create->ts_name_len + 1, "%s", token);
@@ -119,14 +119,14 @@ static int tts_handle_new(char *line, struct tts_packet *tts_p) {
     return TTS_CLIENT_SUCCESS;
 }
 
-static int tts_handle_del(char *line, struct tts_packet *tts_p) {
+static int tts_handle_delete(char *line, struct tts_packet *tts_p) {
     if (count_tokens(line, ' ') < 1)
-        return TTS_CLIENT_FAILURE;
+        return TTS_CLIENT_UNKNOWN_CMD;
     TTS_SET_REQUEST_HEADER(tts_p, TTS_DELETE_TS);
     struct tts_delete_ts *drop = &tts_p->drop;
     char *token = strtok(line, " ");
     if (!token)
-        return TTS_CLIENT_FAILURE;
+        return TTS_CLIENT_UNKNOWN_CMD;
     drop->ts_name_len = strlen(token);
     drop->ts_name = malloc(drop->ts_name_len + 1);
     snprintf((char *) drop->ts_name, drop->ts_name_len + 1, "%s", token);
@@ -135,13 +135,13 @@ static int tts_handle_del(char *line, struct tts_packet *tts_p) {
 
 static int tts_handle_add(char *line, struct tts_packet *tts_p) {
     if (count_tokens(line, ' ') < 3)
-        return TTS_CLIENT_FAILURE;
+        return TTS_CLIENT_UNKNOWN_CMD;
     TTS_SET_REQUEST_HEADER(tts_p, TTS_ADDPOINTS);
     struct tts_addpoints *points = &tts_p->addpoints;
     char *end_str, *end_val, *vals = NULL;
     char *token = strtok_r(line, " ", &end_str);
     if (!token)
-        return TTS_CLIENT_FAILURE;
+        return TTS_CLIENT_UNKNOWN_CMD;
     points->ts_name_len = strlen(token);
     points->ts_name = malloc(points->ts_name_len + 1);
     snprintf((char *) points->ts_name, points->ts_name_len + 1, "%s", token);
@@ -250,7 +250,7 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
 
 static ssize_t tts_parse_req(char *cmd, char *buf) {
     if (count_tokens(cmd, ' ') < 1)
-        return TTS_CLIENT_FAILURE;
+        return TTS_CLIENT_UNKNOWN_CMD;
     int cmd_id = -1, i, err = 0;
     ssize_t len = 0LL;
     struct tts_packet tts_p;
@@ -288,6 +288,15 @@ static int tts_connect(const struct tts_connect_options *opts) {
     int fd = socket(opts->s_family, SOCK_STREAM, 0);
     if (fd < 0)
         goto err;
+
+    /* Set socket timeout for read and write if present on options */
+    if (opts->timeout > 0) {
+        struct timeval tv;
+        tv.tv_sec = opts->timeout;
+        tv.tv_usec = 0;
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char*) &tv, sizeof(tv));
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const char*) &tv, sizeof(tv));
+    }
 
     if (opts->s_family == AF_INET) {
         struct sockaddr_in addr;
@@ -360,8 +369,8 @@ void tts_client_disconnect(tts_client *client) {
 
 int tts_client_send_command(tts_client *client, char *command) {
     ssize_t size = tts_parse_req(command, client->buf);
-    if (size == TTS_CLIENT_FAILURE)
-        return TTS_CLIENT_FAILURE;
+    if (size < 0)
+        return size;
     client->bufsize = size;
     int n = write(client->fd, client->buf, client->bufsize);
     if (n <= 0)

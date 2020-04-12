@@ -31,13 +31,18 @@
 #include <stdio.h>
 #include <netdb.h>
 
-#define TTS_CLIENT_SUCCESS  0
-#define TTS_CLIENT_FAILURE -1
+#define TTS_CLIENT_SUCCESS       0
+#define TTS_CLIENT_FAILURE      -1
+#define TTS_CLIENT_UNKNOWN_CMD  -2
 
 struct tts_packet;
 
 typedef struct tts_client tts_client;
 
+/*
+ * Connection options, use this structure to specify connection related opts
+ * like socket family, host port and timeout for communication
+ */
 struct tts_connect_options {
     int timeout;
     int s_family;
@@ -45,6 +50,10 @@ struct tts_connect_options {
     char *s_addr;
 };
 
+/*
+ * Pretty basic connection wrapper, just a FD with a buffer tracking bytes and
+ * some options for connection
+ */
 struct tts_client {
     int fd;
     const struct tts_connect_options *opts;
