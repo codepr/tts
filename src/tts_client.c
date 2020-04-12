@@ -39,26 +39,29 @@
 #include "tts_client.h"
 
 #define BUFSIZE             2048
-#define COMMANDS_NR         4
+#define COMMANDS_NR         5
 
 typedef int (*tts_cmd_handler)(char *, struct tts_packet *);
 
 static int tts_handle_create(char *, struct tts_packet *);
 static int tts_handle_delete(char *, struct tts_packet *);
 static int tts_handle_add(char *, struct tts_packet *);
+static int tts_handle_madd(char *, struct tts_packet *);
 static int tts_handle_query(char *, struct tts_packet *);
 
 static const char *cmds[COMMANDS_NR] = {
     "create",
     "delete",
     "add",
+    "madd",
     "query"
 };
 
-static tts_cmd_handler handlers[4] = {
+static tts_cmd_handler handlers[COMMANDS_NR] = {
     tts_handle_create,
     tts_handle_delete,
     tts_handle_add,
+    tts_handle_madd,
     tts_handle_query
 };
 
@@ -212,6 +215,42 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
         }
         points->points_len++;
     }
+    return TTS_CLIENT_SUCCESS;
+}
+
+static int tts_handle_madd(char *line, struct tts_packet *tts_p) {
+    if (count_tokens(line, ' ') < 3)
+        return TTS_CLIENT_UNKNOWN_CMD;
+    TTS_SET_REQUEST_HEADER(tts_p, TTS_MADDPOINTS);
+    struct tts_maddpoints *mpoints = &tts_p->maddpoints;
+    char *token = strtok(line, " ");
+    int i = 0;
+    do {
+        mpoints->pts = realloc(mpoints->pts, (i + 1) * sizeof(*mpoints->pts));
+        mpoints->pts[i].ts_name_len = strlen(token);
+        mpoints->pts[i].ts_name = malloc(mpoints->pts[i].ts_name_len + 1);
+        snprintf((char *) mpoints->pts[i].ts_name,
+                 mpoints->pts[i].ts_name_len + 1, "%s", token);
+        token = strtok(NULL, " ");
+        if (!token)
+            return TTS_CLIENT_FAILURE;
+        if (strcmp(token, "*") == 0) {
+            mpoints->pts[i].points[i].bits.ts_sec_set = 0;
+            mpoints->pts[i].points[i].bits.ts_nsec_set = 0;
+        } else {
+            unsigned long long n = read_timestamp(token);
+            int len = get_digits(n);
+            mpoints->pts[i].points[i].bits.ts_sec_set = 1;
+            mpoints->pts[i].points[i].bits.ts_nsec_set = 1;
+            if (len == 10)
+                mpoints->pts[i].points[i].ts_sec = n;
+            else if (len == 13)
+                mpoints->pts[i].points[i].ts_sec = n / 1e3;
+            mpoints->pts[i].points[i].ts_nsec = 0;
+        }
+        ++mpoints->points_len;
+        ++i;
+    } while ((token = strtok(NULL, " ")));
     return TTS_CLIENT_SUCCESS;
 }
 

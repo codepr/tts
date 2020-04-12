@@ -62,8 +62,8 @@
  * The last two steps, will be repeated until the expected length of the packet
  * is exhausted.
  */
-static void unpack_tts_create(uint8_t *buf, size_t len,
-                              struct tts_create_ts *c) {
+static size_t unpack_tts_create(uint8_t *buf, size_t len,
+                                struct tts_create_ts *c) {
     int64_t val = 0;
     // zero'ing tts_create struct
     memset(c, 0x00, sizeof(*c));
@@ -72,6 +72,7 @@ static void unpack_tts_create(uint8_t *buf, size_t len,
     c->ts_name = malloc(c->ts_name_len + 1);
     len -= unpack_bytes(&buf, c->ts_name_len, c->ts_name);
     len -= unpack_integer(&buf, 'q', &c->retention);
+    return len;
 }
 
 /*
@@ -89,16 +90,17 @@ static void unpack_tts_create(uint8_t *buf, size_t len,
  * | Byte N     |                                               |
  * |____________|_______________________________________________|
  */
-static void unpack_tts_delete(uint8_t *buf, size_t len,
-                              struct tts_delete_ts *d) {
+static size_t unpack_tts_delete(uint8_t *buf, size_t len,
+                                struct tts_delete_ts *d) {
     (void) len;
     int64_t val = 0;
     // zero'ing tts_delete struct
     memset(d, 0x00, sizeof(*d));
-    unpack_integer(&buf, 'B', &val);
+    len -= unpack_integer(&buf, 'B', &val);
     d->ts_name_len = val;
     d->ts_name = malloc(d->ts_name_len + 1);
-    unpack_bytes(&buf, d->ts_name_len, d->ts_name);
+    len -= unpack_bytes(&buf, d->ts_name_len, d->ts_name);
+    return len;
 }
 
 /*
@@ -149,7 +151,7 @@ static void unpack_tts_delete(uint8_t *buf, size_t len,
  * The steps starting at [Array start] will be repeated until the expected
  * length of the packet is exhausted.
  */
-static void unpack_tts_addpoints(uint8_t *buf, size_t len,
+static size_t unpack_tts_addpoints(uint8_t *buf, size_t len,
                                  struct tts_addpoints *a) {
     int64_t val = 0;
     // zero'ing tts_addpoints struct
@@ -191,6 +193,14 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
         }
         ++a->points_len;
     }
+    return len;
+}
+
+static size_t unpack_tts_maddpoints(uint8_t *buf, size_t len,
+                                  struct tts_maddpoints *m) {
+    for (int i = 0; i < m->points_len; ++i)
+        len -= unpack_tts_addpoints(buf, len, m->pts + i);
+    return len;
 }
 
 /*
@@ -224,7 +234,7 @@ static void unpack_tts_addpoints(uint8_t *buf, size_t len,
  * | Byte N+31  |                                               |
  * |____________|_______________________________________________|
  */
-static void unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
+static size_t unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
     int64_t val = 0;
     // zero'ing tts_query struct
     memset(q, 0x00, sizeof(*q));
@@ -254,13 +264,14 @@ static void unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
             len -= unpack_bytes(&buf, val, q->filters[i].value);
         }
     }
+    return len;
 }
 
 /*
  * Unpack the binary buffer to a tts_query_response
  */
-static void unpack_tts_query_response(uint8_t *buf, size_t len,
-                                      struct tts_query_response *qa) {
+static size_t unpack_tts_query_response(uint8_t *buf, size_t len,
+                                        struct tts_query_response *qa) {
     int64_t val = 0LL;
     memset(qa, 0x00, sizeof(*qa));
     for (size_t i = 0; len > 0; ++i) {
@@ -288,6 +299,7 @@ static void unpack_tts_query_response(uint8_t *buf, size_t len,
         }
         qa->len++;
     }
+    return len;
 }
 
 /*
@@ -310,6 +322,9 @@ void unpack_tts_packet(uint8_t *buf, struct tts_packet *tts_p) {
             break;
         case TTS_ADDPOINTS:
             unpack_tts_addpoints(buf, tts_p->len, &tts_p->addpoints);
+            break;
+        case TTS_MADDPOINTS:
+            unpack_tts_maddpoints(buf, tts_p->len, &tts_p->maddpoints);
             break;
         case TTS_QUERY:
             unpack_tts_query(buf, tts_p->len, &tts_p->query);
@@ -372,6 +387,13 @@ static ssize_t pack_tts_addpoints(const struct tts_addpoints *a, uint8_t *buf) {
     return len;
 }
 
+static ssize_t pack_tts_maddpoints(const struct tts_maddpoints *m, uint8_t *buf) {
+    size_t len = 0;
+    for (int i = 0; i < m->points_len; ++i)
+        len += pack_tts_addpoints(m->pts + i, buf);
+    return len;
+}
+
 ssize_t pack_tts_query_response(const struct tts_query_response *qr,
                                 uint8_t *buf) {
     size_t len = 0LL;
@@ -410,6 +432,9 @@ ssize_t pack_tts_packet(const struct tts_packet *tts_p, uint8_t *buf) {
             break;
         case TTS_ADDPOINTS:
             plen = pack_tts_addpoints(&tts_p->addpoints, buf + len_offset);
+            break;
+        case TTS_MADDPOINTS:
+            plen = pack_tts_maddpoints(&tts_p->maddpoints, buf + len_offset);
             break;
         case TTS_QUERY:
             plen = pack_tts_query(&tts_p->query, buf + len_offset);

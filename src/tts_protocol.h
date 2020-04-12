@@ -67,6 +67,7 @@ enum {
     TTS_CREATE_TS = 0x00,
     TTS_DELETE_TS,
     TTS_ADDPOINTS,
+    TTS_MADDPOINTS,
     TTS_QUERY,
     TTS_QUERY_RESPONSE,
     TTS_ACK
@@ -172,6 +173,15 @@ struct tts_addpoints {
 };
 
 /*
+ * Command TTS_MADDPOINTS, it's simply a list of tts_addpoints in order to
+ * insert multiple points into differents timeseries in a single call
+ */
+struct tts_maddpoints {
+    uint16_t points_len;
+    struct tts_addpoints *pts;
+};
+
+/*
  * Command TTS_QUERY, generic query command to retrieve one or more points,
  * depending on the flag passed in, in different forms:
  *
@@ -258,6 +268,7 @@ struct tts_packet {
         struct tts_create_ts create;
         struct tts_delete_ts drop;  // just to avoid keyword naming clash
         struct tts_addpoints addpoints;
+        struct tts_maddpoints maddpoints;
         struct tts_query query;
         struct tts_query_response query_r;
     };
