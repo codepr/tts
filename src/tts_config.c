@@ -101,6 +101,14 @@ static void add_config_value(const char *key, const char *value) {
     } else if (STREQ("tcp_backlog", key, klen) == true) {
         int tcp_backlog = parse_int(value);
         config.tcp_backlog = tcp_backlog <= SOMAXCONN ? tcp_backlog : SOMAXCONN;
+    } else if (STREQ("unix_socket", key, klen) == true) {
+        config.mode = TTS_AF_UNIX;
+        strcpy(config.host, value);
+    } else if (STREQ("ip_address", key, klen) == true) {
+        config.mode = TTS_AF_UNIX;
+        strcpy(config.host, value);
+    } else if (STREQ("ip_port", key, klen) == true) {
+        config.port = atoi(value);
     }
 }
 
@@ -169,8 +177,9 @@ bool tts_config_load(const char *configpath) {
     FILE *fh = fopen(configpath, "r");
 
     if (!fh) {
-        log_warning("WARNING: Unable to open conf file %s", configpath);
-        log_warning("To specify a config file run llb -c /path/to/conf");
+        log_warning("WARNING: Unable to open conf file %s: %s",
+                    configpath, strerror(errno));
+        log_warning("To specify a config file run tts -c /path/to/conf");
         return false;
     }
 
@@ -228,9 +237,12 @@ void tts_config_set_default(void) {
     // Set default values
     config.version = VERSION;
     config.loglevel = DEFAULT_LOG_LEVEL;
-    memset(config.logpath, 0x00, 0xFFF);
+    strcpy(config.logpath, DEFAULT_LOG_PATH);
     config.tcp_backlog = SOMAXCONN;
     config.pid = getpid();
+    config.mode = DEFAULT_MODE;
+    config.port = DEFAULT_PORT;
+    strcpy(config.host, DEFAULT_HOSTNAME);
 }
 
 void tts_config_print(void) {
@@ -241,6 +253,8 @@ void tts_config_print(void) {
     }
     log_info("tts v%s is starting", VERSION);
     log_info("Network settings:");
+    log_info("\tSocket family: %s", config.mode == TTS_AF_INET ? "TCP" : "UNIX");
+    log_info("\tListening on: %s:%i", config.host, config.port);
     log_info("\tTcp backlog: %d", config.tcp_backlog);
     log_info("\tFile handles soft limit: %li", get_fh_soft_limit());
     log_info("Logging:");

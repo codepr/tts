@@ -8,7 +8,7 @@ with nanosecods precision, currently supports only basic operations:
 - `CREATE timeseries-name [retention]`
 - `DELETE timeseries-name`
 - `ADD timeseries-name timestamp|* value [label value ..] - ..`
-- `QUERY timeseries-name [>|<|range] start_timestamp [end_timestamp] [avg value]`
+- `QUERY timeseries-name [>|<|RANGE] start_timestamp [end_timestamp] [AVG value]`
 
 Retention is currently ignored as argument, `ADD` supports multiple points
 sharing the same timestamp separated by `-` character.

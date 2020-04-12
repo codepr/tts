@@ -35,32 +35,49 @@
 static const char *flag_description[] = {
     "Print this help",
     "Set a configuration file to load and use",
+    "Set the execution mode, the connection to use, accepts tcp|unix",
     "Set an address hostname to listen on",
     "Set a different port other than 19191",
     "Enable all logs, setting log level to DEBUG",
     "Run in daemon mode"
 };
 
-void print_help(char *me) {
+static void print_help(const char *me) {
     printf("\ntts v%s Transient Time Series, a lightweight in-memory TSDB\n\n",
            VERSION);
-    printf("Usage: %s [-c conf] [-a addr] [-p port] [-v|-d|-h]\n\n", me);
-    const char flags[6] = "hcapvd";
-    for (int i = 0; i < 6; ++i)
+    printf("Usage: %s [-c conf] [-a addr] [-p port] [-m mode] [-v|-d|-h]\n\n", me);
+    const char flags[7] = "hcmapvd";
+    for (int i = 0; i < 7; ++i)
         printf(" -%c: %s\n", flags[i], flag_description[i]);
     printf("\n");
 }
 
+static int modetoi(const char *str) {
+    if (strcasecmp(str, "tcp") == 0)
+        return TTS_AF_INET;
+    if (strcasecmp(str, "unix") == 0)
+        return TTS_AF_UNIX;
+    return -1;
+}
+
 int main(int argc, char **argv) {
     char *confpath = DEFAULT_CONF_PATH, *host = DEFAULT_HOSTNAME;
-    int debug = 0, daemon = 0, port = DEFAULT_PORT;
+    int debug = 0, daemon = 0, port = DEFAULT_PORT, mode = DEFAULT_PORT;
     int opt;
 
     // Set default configuration
     tts_config_set_default();
 
-    while ((opt = getopt(argc, argv, "c:a:p:vhd:")) != -1) {
+    while ((opt = getopt(argc, argv, "m:c:a:p:vhd:")) != -1) {
         switch (opt) {
+            case 'm':
+                mode = modetoi(optarg);
+                if (mode == -1) {
+                    fprintf(stderr, "Unknown mode '%s'\n", optarg);
+                    print_help(argv[0]);
+                    exit(EXIT_FAILURE);
+                }
+                break;
             case 'a':
                 host = optarg;
                 break;
@@ -80,14 +97,16 @@ int main(int argc, char **argv) {
                 print_help(argv[0]);
                 exit(EXIT_SUCCESS);
             default:
-                fprintf(stderr, "Usage: %s [-c conf] [-a addr] [-p port] [-vhd]\n",
-                        argv[0]);
+                print_help(argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
 
     // Override default DEBUG mode
     conf->loglevel = debug == 1 ? DEBUG : WARNING;
+    conf->mode = mode;
+    conf->port = port;
+    strcpy(conf->host, host);
 
     tts_config_load(confpath);
     tts_log_init(conf->logpath);
@@ -98,7 +117,7 @@ int main(int argc, char **argv) {
     // Print configuration
     tts_config_print();
 
-    tts_start_server(host, port);
+    tts_start_server(conf->host, conf->port);
 
     tts_log_close();
 

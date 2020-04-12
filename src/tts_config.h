@@ -32,27 +32,43 @@
 #include <string.h>
 #include <stdbool.h>
 
+// Execution modes
+
+#define TTS_AF_INET 0
+#define TTS_AF_UNIX 1
+
 // Default parameters
 
 #define VERSION           "0.0.1"
 #define DEFAULT_LOG_LEVEL DEBUG
+#define DEFAULT_LOG_PATH  "/var/log/tts.log"
 #define DEFAULT_CONF_PATH "/etc/tts/tts.conf"
 #define DEFAULT_HOSTNAME  "127.0.0.1"
 #define DEFAULT_PORT      19191
+#define DEFAULT_MODE      TTS_AF_INET
 
 #define STREQ(s1, s2, len) strncasecmp(s1, s2, len) == 0 ? true : false
 
 struct tts_config {
-    /* llb version <MAJOR.MINOR.PATCH> */
-    const char *version;
     /* Logging level, to be set by reading configuration */
     int loglevel;
-    /* Log file path */
-    char logpath[0xFFF];
     /* TCP backlog size */
     int tcp_backlog;
     /* Application pid */
     pid_t pid;
+    /*
+     * Execution mode, can be TTS_AF_INET which means TCP or TTS_AF_UNIX using
+     * unix sockets
+     */
+    int mode;
+    /* TCP listening port */
+    int port;
+    /* TCP listening address */
+    char host[0xFF];
+    /* tts version <MAJOR.MINOR.PATCH> */
+    const char *version;
+    /* Log file path */
+    char logpath[0xFFF];
 };
 
 extern struct tts_config *conf;

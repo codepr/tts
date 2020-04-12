@@ -26,6 +26,7 @@
  */
 
 #include <time.h>
+#include <errno.h>
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -46,7 +47,8 @@ void tts_log_init(const char *file) {
     if (!file) return;
     fh = fopen(file, "a+");
     if (!fh)
-        log_warning("WARNING: Unable to open file %s", file);
+        log_warning("WARNING: Unable to open file %s: %s",
+                    file, strerror(errno));
 }
 
 /*
