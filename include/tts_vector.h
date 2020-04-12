@@ -66,7 +66,32 @@
     (vec).data[(vec).size++] = (item);                                  \
 } while (0)
 
+#define TTS_VECTOR_REMOVE(vec, index) do {                      \
+    assert((index) > 0 && (index) < TTS_VECTOR_SIZE((vec)));    \
+    memmove((vec).data + (index),                               \
+            (vec).data + (index) + 1, (vec).size - (index));    \
+    (vec).size--;                                               \
+} while (0)
+
+#define TTS_VECTOR_REMOVE_PTR(vec, ptr) do {                \
+    for (size_t i = 0; i < TTS_VECTOR_SIZE((vec)); ++i) {   \
+        if ((ptr) == TTS_VECTOR_AT((vec), i)) {             \
+            TTS_VECTOR_REMOVE((vec), i);                    \
+            break;                                          \
+        }                                                   \
+    }                                                       \
+} while (0);
+
 #define TTS_VECTOR_AT(vec, index) (vec).data[(index)]
+
+#define TTS_VECTOR_FIRST(vec) TTS_VECTOR_AT((vec), 0)
+
+#define TTS_VECTOR_LAST(vec) TTS_VECTOR_AT((vec), TTS_VECTOR_SIZE((vec)) - 1)
+
+#define TTS_VECTOR_RESIZE(vec, start) do {                              \
+    memmove((vec).data, (vec).data + (start), (vec).size - (start));    \
+    (vec).size -= (start);                                              \
+} while (0)
 
 #define TTS_VECTOR_BINSEARCH(vec, target, res) do {          \
     if ((vec).data[0] >= (target)) {                         \

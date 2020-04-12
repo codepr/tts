@@ -92,7 +92,7 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
     struct tts_timeseries *ts = NULL;
     char *key = (char *) pa->ts_name;
     struct tts_packet response = {0};
-    unsigned long long timestamp = 0ULL;
+    tts_timestamp timestamp = 0ULL;
     int rc = TTS_OK;
     /*
      * Check if the target timeseries already exists, if it doesn't we want to
@@ -109,6 +109,23 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
     struct timespec tv;
     struct tts_tag *dummy = NULL, *sub = NULL;
     clock_gettime(CLOCK_REALTIME, &tv);
+    /*
+     * Before inserting new points, we want to check if a retention is set and
+     * in case, trim timestamps and points vector according to the maximum age
+     * allowed
+     */
+    tts_timestamp first = TTS_VECTOR_FIRST(ts->timestamps);
+    tts_timestamp last = TTS_VECTOR_LAST(ts->timestamps);
+    if (ts->retention != 0 && (last - first) > ts->retention) {
+        size_t idx = 0;
+        timestamp = last - ts->retention;
+        TTS_VECTOR_BINSEARCH(ts->timestamps, timestamp, &idx);
+        struct tts_record *r = TTS_VECTOR_AT(ts->columns, idx);
+        TTS_TIMESERIES_REMOVE_RECORD(ts, r);
+        TTS_VECTOR_RESIZE(ts->timestamps, idx);
+        TTS_VECTOR_RESIZE(ts->columns, idx);
+        free(r);
+    }
     /*
      * As it's possible to insert multiple points with the same timestamp, we
      * iterate point by point appending each one to the timestamps vector and
@@ -207,11 +224,11 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
 static void handle_tts_query_single(const struct tts_timeseries *ts,
                                     struct tts_query_response *q,
                                     size_t r_idx, size_t t_idx) {
-    unsigned long long t = TTS_VECTOR_AT(ts->timestamps, t_idx);
+    tts_timestamp t = TTS_VECTOR_AT(ts->timestamps, t_idx);
     struct tts_record *record = TTS_VECTOR_AT(ts->columns, t_idx);
     q->results[r_idx].rc = TTS_OK;
-    q->results[r_idx].ts_sec = t / (unsigned long long) 1e9;
-    q->results[r_idx].ts_nsec = t % (unsigned long long) 1e9;
+    q->results[r_idx].ts_sec = t / (tts_timestamp) 1e9;
+    q->results[r_idx].ts_nsec = t % (tts_timestamp) 1e9;
     q->results[r_idx].value = record->value;
     q->results[r_idx].labels_len = record->labels_nr;
     q->results[r_idx].labels =
@@ -280,7 +297,7 @@ static void handle_tts_query_range(const struct tts_timeseries *ts,
     size_t lo_idx = 0UL, hi_idx = 0UL;
     struct tts_query_response *q = &p->query_r;
     get_range_indexes(ts, minor_of, major_of, &lo_idx, &hi_idx);
-    unsigned long long range = hi_idx - lo_idx + 1;
+    tts_timestamp range = hi_idx - lo_idx + 1;
     q->results = calloc(range, sizeof(*q->results));
     q->len = range;
     for (size_t i = 0; i < range; ++i)
@@ -322,7 +339,7 @@ static void handle_tts_query_mean(const struct tts_timeseries *ts,
                                   ev_buf *buf) {
     struct tts_query_response *q = &p->query_r;
     long double avg = 0.0;
-    unsigned long long t = 0ULL, step = 0LL;
+    tts_timestamp t = 0ULL, step = 0LL;
     struct tts_record *record = NULL;
     q->results = NULL;
     size_t i = lo, j = 0, k = 0;
@@ -344,8 +361,8 @@ static void handle_tts_query_mean(const struct tts_timeseries *ts,
         avg /= j;
         q->results[k].labels_len = 0;
         q->results[k].rc = TTS_OK;
-        q->results[k].ts_sec = t / (unsigned long long) 1e9;
-        q->results[k].ts_nsec = t % (unsigned long long) 1e9;
+        q->results[k].ts_sec = t / (tts_timestamp) 1e9;
+        q->results[k].ts_nsec = t % (tts_timestamp) 1e9;
         q->results[k].value = avg;
         ++k;
         ++q->len;
@@ -362,7 +379,7 @@ static void handle_tts_query_mean(const struct tts_timeseries *ts,
 static void handle_tts_query_mean_r(const struct tts_timeseries *ts,
                                     struct tts_packet *p,
                                     size_t lo, size_t hi,
-                                    unsigned long long start,
+                                    tts_timestamp start,
                                     unsigned long long window,
                                     ev_buf *buf) {
     struct tts_query_response *q = &p->query_r;
@@ -400,8 +417,8 @@ static void handle_tts_query_mean_r(const struct tts_timeseries *ts,
         avg /= j;
         q->results[k].labels_len = 0;
         q->results[k].rc = TTS_OK;
-        q->results[k].ts_sec = step / (unsigned long long) 1e9;
-        q->results[k].ts_nsec = step % (unsigned long long) 1e9;
+        q->results[k].ts_sec = step / (tts_timestamp) 1e9;
+        q->results[k].ts_nsec = step % (tts_timestamp) 1e9;
         q->results[k].value = avg;
         ++k;
         ++q->len;
@@ -426,6 +443,23 @@ static int handle_tts_query(struct tts_payload *payload) {
         buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
         return TTS_OK;
     }
+    /*
+     * Before inserting new points, we want to check if a retention is set and
+     * in case, trim timestamps and points vector according to the maximum age
+     * allowed
+     */
+    tts_timestamp first = TTS_VECTOR_FIRST(ts->timestamps);
+    tts_timestamp last = TTS_VECTOR_LAST(ts->timestamps);
+    if (ts->retention != 0 && (last - first) > ts->retention) {
+        size_t idx = 0;
+        tts_timestamp timestamp = last - ts->retention;
+        TTS_VECTOR_BINSEARCH(ts->timestamps, timestamp, &idx);
+        struct tts_record *r = TTS_VECTOR_AT(ts->columns, idx);
+        TTS_TIMESERIES_REMOVE_RECORD(ts, r);
+        TTS_VECTOR_RESIZE(ts->timestamps, idx);
+        TTS_VECTOR_RESIZE(ts->columns, idx);
+        free(r);
+    }
     TTS_SET_RESPONSE_HEADER(&response, TTS_QUERY_RESPONSE, TTS_OK);
     if (packet->query.byte == TTS_QUERY_ALL_TIMESERIES ||
         packet->query.byte == TTS_QUERY_ALL_TIMESERIES_AVG) {
@@ -447,8 +481,8 @@ static int handle_tts_query(struct tts_payload *payload) {
          * we want to check for filters or aggregations requested
          */
         size_t ts_size = TTS_VECTOR_SIZE(ts->timestamps) - 1;
-        unsigned long long major_of = TTS_VECTOR_AT(ts->timestamps, 0);
-        unsigned long long minor_of = TTS_VECTOR_AT(ts->timestamps, ts_size);
+        tts_timestamp major_of = TTS_VECTOR_AT(ts->timestamps, 0);
+        tts_timestamp minor_of = TTS_VECTOR_AT(ts->timestamps, ts_size);
         if (packet->query.bits.first == 1) {
             handle_tts_query_one(ts, &response, 0, buf);
         } else if (packet->query.bits.last == 1) {

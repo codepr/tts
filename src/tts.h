@@ -35,6 +35,8 @@
 #define TTS_TS_FIELDS_MAX_NUMBER 1 << 8
 #define TTS_TS_NAME_MAX_LENGTH   1 << 9
 
+typedef unsigned long long int tts_timestamp;
+
 /*
  * Simple record struct, wrap around a column inside the database, defined as a
  * key-val couple alike, though it's used only to describe the value of each
@@ -77,7 +79,7 @@ struct tts_timeseries {
     size_t fields_nr;
     uint32_t retention;
     char name[TTS_TS_NAME_MAX_LENGTH];
-    TTS_VECTOR(unsigned long long) timestamps;
+    TTS_VECTOR(tts_timestamp) timestamps;
     TTS_VECTOR(struct tts_record *) columns;
     struct tts_tag *tags;
     UT_hash_handle hh;
@@ -156,6 +158,19 @@ static inline int timespec_compare(const struct timespec *t1,
         free(tag);                                              \
     }                                                           \
     free(ts);                                                   \
+} while (0)
+
+#define TTS_TIMESERIES_REMOVE_RECORD(ts, rec) do {              \
+    struct tts_tag *t, *sub;                                    \
+    for (int i = 0; i < (rec)->labels_nr; ++i) {                \
+        HASH_FIND_STR((ts)->tags, (rec)->labels[i].field, t);   \
+        if (t) {                                                \
+            HASH_FIND_STR(t->tag, (rec)->labels[i].value, sub); \
+            if (sub) {                                          \
+                TTS_VECTOR_REMOVE_PTR(sub->column, (rec));      \
+            }                                                   \
+        }                                                       \
+    }                                                           \
 } while (0)
 
 #endif
