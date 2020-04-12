@@ -89,8 +89,14 @@ static inline unsigned get_digits(unsigned long long n) {
 static inline long long read_number(const char *str) {
     char *nul = NULL;
     long long n = strtoll(str, &nul, 10);
-    if (*nul != '\0' || nul == str ||
-        (get_digits(n) < 10 && get_digits(n) > 13))
+    if (*nul != '\0' || nul == str)
+        return TTS_CLIENT_FAILURE;
+    return n;
+}
+
+static inline long long read_timestamp(const char *str) {
+    long long n = read_number(str);
+    if (n < 0 || (get_digits(n) < 10 && get_digits(n) > 13))
         return TTS_CLIENT_FAILURE;
     return n;
 }
@@ -114,8 +120,15 @@ static int tts_handle_create(char *line, struct tts_packet *tts_p) {
     create->ts_name_len = strlen(token);
     create->ts_name = malloc(create->ts_name_len + 1);
     snprintf((char *) create->ts_name, create->ts_name_len + 1, "%s", token);
+    /*
+     * Retention is optional, in case of no number specified it is set to 0
+     * which means no retention. An error is returned in case of a non-integer
+     * value set
+     */
     token = strtok(NULL, " ");
-    create->retention = token ? atoi(token) : 0;
+    create->retention = token ? read_number(token) * 1e6 : 0;
+    if (create->retention < 0)
+        return TTS_CLIENT_UNKNOWN_CMD;
     return TTS_CLIENT_SUCCESS;
 }
 
@@ -164,7 +177,7 @@ static int tts_handle_add(char *line, struct tts_packet *tts_p) {
             points->points[i].bits.ts_sec_set = 0;
             points->points[i].bits.ts_nsec_set = 0;
         } else {
-            unsigned long long n = read_number(vals);
+            unsigned long long n = read_timestamp(vals);
             int len = get_digits(n);
             points->points[i].bits.ts_sec_set = 1;
             points->points[i].bits.ts_nsec_set = 1;

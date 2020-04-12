@@ -71,7 +71,7 @@ static void unpack_tts_create(uint8_t *buf, size_t len,
     c->ts_name_len = val;
     c->ts_name = malloc(c->ts_name_len + 1);
     len -= unpack_bytes(&buf, c->ts_name_len, c->ts_name);
-    len -= unpack_integer(&buf, 'I', (int64_t *) &c->retention);
+    len -= unpack_integer(&buf, 'q', &c->retention);
 }
 
 /*
@@ -328,7 +328,7 @@ void unpack_tts_packet(uint8_t *buf, struct tts_packet *tts_p) {
 
 static ssize_t pack_tts_create(const struct tts_create_ts *create,
                                uint8_t *buf) {
-    return pack(buf, "BsI", create->ts_name_len,
+    return pack(buf, "Bsq", create->ts_name_len,
                 create->ts_name, create->retention);
 }
 

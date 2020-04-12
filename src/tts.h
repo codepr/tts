@@ -77,7 +77,7 @@ struct tts_tag {
  */
 struct tts_timeseries {
     size_t fields_nr;
-    uint32_t retention;
+    int64_t retention;
     char name[TTS_TS_NAME_MAX_LENGTH];
     TTS_VECTOR(tts_timestamp) timestamps;
     TTS_VECTOR(struct tts_record *) columns;

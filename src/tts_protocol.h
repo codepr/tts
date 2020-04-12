@@ -128,7 +128,7 @@ union tts_header {
  */
 struct tts_create_ts {
     TS_NAME_FIELD
-    uint32_t retention;  // unused
+    int64_t retention;  // unused
 };
 
 /*

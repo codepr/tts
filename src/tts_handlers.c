@@ -51,7 +51,8 @@ static int handle_tts_create(struct tts_payload *payload) {
         ts = malloc(sizeof(*ts));
         TTS_TIMESERIES_INIT(ts, c->ts_name, c->retention);
         HASH_ADD_STR(payload->tts_db->timeseries, name, ts);
-        log_debug("Created new timeseries \"%s\" (r=%u)", ts->name, ts->retention);
+        log_debug("Created new timeseries \"%s\" (r=%li)",
+                  ts->name, ts->retention);
     }
     /* Set up the response to the client */
     TTS_SET_RESPONSE_HEADER(&response, TTS_ACK, rc);
@@ -115,9 +116,9 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
      * allowed
      */
     if (TTS_VECTOR_SIZE(ts->timestamps) > 0) {
-    tts_timestamp first = TTS_VECTOR_FIRST(ts->timestamps);
+        tts_timestamp first = TTS_VECTOR_FIRST(ts->timestamps);
         tts_timestamp last = TTS_VECTOR_LAST(ts->timestamps);
-        if (ts->retention != 0 && (last - first) > ts->retention) {
+        if (ts->retention != 0 && (int64_t) (last - first) > ts->retention) {
             size_t idx = 0;
             timestamp = last - ts->retention;
             TTS_VECTOR_BINSEARCH(ts->timestamps, timestamp, &idx);
@@ -453,7 +454,7 @@ static int handle_tts_query(struct tts_payload *payload) {
     if (TTS_VECTOR_SIZE(ts->timestamps) > 0) {
         tts_timestamp first = TTS_VECTOR_FIRST(ts->timestamps);
         tts_timestamp last = TTS_VECTOR_LAST(ts->timestamps);
-        if (ts->retention != 0 && (last - first) > ts->retention) {
+        if (ts->retention != 0 && (int64_t) (last - first) > ts->retention) {
             size_t idx = 0;
             tts_timestamp timestamp = last - ts->retention;
             TTS_VECTOR_BINSEARCH(ts->timestamps, timestamp, &idx);
