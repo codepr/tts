@@ -156,8 +156,11 @@ int main(int argc, char **argv) {
         getline(&line, &line_len, stdin);
         (void) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tstart);
         err = tts_client_send_command(&c, line);
-        if (err < 0) {
-            if (err == TTS_CLIENT_UNKNOWN_CMD) {
+        if (err <= 0) {
+            if (err == TTS_CLIENT_SUCCESS) {
+                tts_client_disconnect(&c);
+                break;
+            } else if (err == TTS_CLIENT_UNKNOWN_CMD) {
                 printf("Unknown command or malformed one\n");
                 const char *usage = cmd_usage(line);
                 if (usage)

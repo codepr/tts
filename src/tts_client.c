@@ -249,6 +249,8 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
 }
 
 static ssize_t tts_parse_req(char *cmd, char *buf) {
+    if (strncasecmp(cmd, "quit", 4) == 0 || strncasecmp(cmd, "exit", 4) == 0)
+        return TTS_CLIENT_SUCCESS;
     if (count_tokens(cmd, ' ') < 1)
         return TTS_CLIENT_UNKNOWN_CMD;
     int cmd_id = -1, i, err = 0;
@@ -369,7 +371,7 @@ void tts_client_disconnect(tts_client *client) {
 
 int tts_client_send_command(tts_client *client, char *command) {
     ssize_t size = tts_parse_req(command, client->buf);
-    if (size < 0)
+    if (size <= 0)
         return size;
     client->bufsize = size;
     int n = write(client->fd, client->buf, client->bufsize);
