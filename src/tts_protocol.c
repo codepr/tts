@@ -34,8 +34,18 @@
 /*
  * ========================
  *   UNPACKING FUNCTONS
- *========================
+ * ========================
  */
+
+static size_t unpack_ts_name(uint8_t **buf, uint8_t *namelen, uint8_t **name) {
+    size_t len = 0;
+    int64_t val = 0;
+    len += unpack_integer(buf, 'B', &val);
+    *namelen = val;
+    *name = malloc(val + 1);
+    len += unpack_bytes(buf, val, *name);
+    return len;
+}
 
 /*
  * Unpack from binary to struct tts_create packet, the form of the packet is
@@ -64,13 +74,9 @@
  */
 static size_t unpack_tts_create(uint8_t *buf, size_t len,
                                 struct tts_create_ts *c) {
-    int64_t val = 0;
     // zero'ing tts_create struct
     memset(c, 0x00, sizeof(*c));
-    len -= unpack_integer(&buf, 'B', &val);
-    c->ts_name_len = val;
-    c->ts_name = malloc(c->ts_name_len + 1);
-    len -= unpack_bytes(&buf, c->ts_name_len, c->ts_name);
+    len -= unpack_ts_name(&buf, &c->ts_name_len, &c->ts_name);
     len -= unpack_integer(&buf, 'q', &c->retention);
     return len;
 }
@@ -92,14 +98,9 @@ static size_t unpack_tts_create(uint8_t *buf, size_t len,
  */
 static size_t unpack_tts_delete(uint8_t *buf, size_t len,
                                 struct tts_delete_ts *d) {
-    (void) len;
-    int64_t val = 0;
     // zero'ing tts_delete struct
     memset(d, 0x00, sizeof(*d));
-    len -= unpack_integer(&buf, 'B', &val);
-    d->ts_name_len = val;
-    d->ts_name = malloc(d->ts_name_len + 1);
-    len -= unpack_bytes(&buf, d->ts_name_len, d->ts_name);
+    len -= unpack_ts_name(&buf, &d->ts_name_len, &d->ts_name);
     return len;
 }
 
@@ -151,16 +152,14 @@ static size_t unpack_tts_delete(uint8_t *buf, size_t len,
  * The steps starting at [Array start] will be repeated until the expected
  * length of the packet is exhausted.
  */
-static size_t unpack_tts_addpoints(uint8_t *buf, size_t len,
+static size_t unpack_tts_addpoints(uint8_t *buf, ssize_t len,
                                  struct tts_addpoints *a) {
     int64_t val = 0;
     // zero'ing tts_addpoints struct
     memset(a, 0x00, sizeof(*a));
-    len -= unpack_integer(&buf, 'B', &val);
-    a->ts_name_len = val;
-    a->ts_name = malloc(a->ts_name_len + 1);
-    len -= unpack_bytes(&buf, a->ts_name_len, a->ts_name);
+    len -= unpack_ts_name(&buf, &a->ts_name_len, &a->ts_name);
     for (int i = 0; len > 0; ++i) {
+        printf("%i\n", i);
         a->points = realloc(a->points, (i + 1) * sizeof(*a->points));
         len -= unpack_integer(&buf, 'B', &val);
         a->points[i].byte = val;
@@ -196,10 +195,45 @@ static size_t unpack_tts_addpoints(uint8_t *buf, size_t len,
     return len;
 }
 
+static size_t unpack_tts_addpoints_single(uint8_t *buf,
+                                          struct tts_addpoints *a) {
+    size_t len = 0;
+    int64_t val = 0;
+    // zero'ing tts_addpoints struct
+    memset(a, 0x00, sizeof(*a));
+    len += unpack_ts_name(&buf, &a->ts_name_len, &a->ts_name);
+    a->points = calloc(1, sizeof(*a->points));
+    len += unpack_integer(&buf, 'B', &val);
+    a->points[0].byte = val;
+    len += unpack_real(&buf, 'g', &a->points[0].value);
+    // Unpack the seconds and nanoseconds component of the timestamp if
+    // present
+    if (a->points[0].bits.ts_sec_set == 1) {
+        len += unpack_integer(&buf, 'Q', &val);
+        a->points[0].ts_sec = val;
+    }
+    if (a->points[0].bits.ts_nsec_set == 1) {
+        len += unpack_integer(&buf, 'Q', &val);
+        a->points[0].ts_nsec = val;
+    }
+    len += unpack_integer(&buf, 'H', &val);
+    a->points[0].labels_len = val;
+    a->points[0].labels =
+        calloc(a->points[0].labels_len, sizeof(*a->points[0].labels));
+    ++a->points_len;
+    return len;
+}
+
 static size_t unpack_tts_maddpoints(uint8_t *buf, size_t len,
-                                  struct tts_maddpoints *m) {
-    for (int i = 0; i < m->points_len; ++i)
-        len -= unpack_tts_addpoints(buf, len, m->pts + i);
+                                    struct tts_maddpoints *m) {
+    size_t packed = 0;
+    for (int i = 0; len > 0; ++i) {
+        m->pts = realloc(m->pts, (i + 1) * sizeof(*m->pts));
+        packed = unpack_tts_addpoints_single(buf, &m->pts[i]);
+        len -= packed;
+        buf += packed;
+        m->points_len++;
+    }
     return len;
 }
 
@@ -238,10 +272,7 @@ static size_t unpack_tts_query(uint8_t *buf, size_t len, struct tts_query *q) {
     int64_t val = 0;
     // zero'ing tts_query struct
     memset(q, 0x00, sizeof(*q));
-    len -= unpack_integer(&buf, 'B', &val);
-    q->ts_name_len = val;
-    q->ts_name = malloc(q->ts_name_len + 1);
-    len -= unpack_bytes(&buf, q->ts_name_len, q->ts_name);
+    len -= unpack_ts_name(&buf, &q->ts_name_len, &q->ts_name);
     // We unpack the query header here, carrying the flags and filter to apply
     // to the requested query
     len -= unpack_integer(&buf, 'B', &val);
@@ -338,7 +369,7 @@ void unpack_tts_packet(uint8_t *buf, struct tts_packet *tts_p) {
 /*
  * ========================
  *    PACKING FUNCTONS
- *========================
+ * ========================
  */
 
 static ssize_t pack_tts_create(const struct tts_create_ts *create,
@@ -388,9 +419,12 @@ static ssize_t pack_tts_addpoints(const struct tts_addpoints *a, uint8_t *buf) {
 }
 
 static ssize_t pack_tts_maddpoints(const struct tts_maddpoints *m, uint8_t *buf) {
-    size_t len = 0;
-    for (int i = 0; i < m->points_len; ++i)
-        len += pack_tts_addpoints(m->pts + i, buf);
+    ssize_t len = 0, packed = 0;
+    for (int i = 0; i < m->points_len; ++i) {
+        packed = pack_tts_addpoints(&m->pts[i], buf);
+        buf += packed;
+        len += packed;
+    }
     return len;
 }
 

@@ -214,9 +214,23 @@ static int handle_tts_addpoints(struct tts_payload *payload) {
         // Update the columns vector with the latest record created
         TTS_VECTOR_APPEND(ts->columns, record);
     }
+    log_debug("Adding point to \"%s\" (r=%li)", ts->name, ts->retention);
     /* Set up the response to the client */
     TTS_SET_RESPONSE_HEADER(&response, TTS_ACK, rc);
     buf->size = pack_tts_packet(&response, (uint8_t *) buf->buf);
+    return TTS_OK;
+}
+
+static int handle_tts_maddpoints(struct tts_payload *payload) {
+    struct tts_payload p = {
+        .tts_db = payload->tts_db,
+        .buf = payload->buf
+    };
+    log_debug("Handling point %i", payload->packet.maddpoints.points_len);
+    for (int i = 0; i < payload->packet.maddpoints.points_len; ++i) {
+        p.packet.addpoints = payload->packet.maddpoints.pts[i];
+        handle_tts_addpoints(&p);
+    }
     return TTS_OK;
 }
 
@@ -526,6 +540,9 @@ int tts_handle_packet(struct tts_payload *payload) {
             break;
         case TTS_ADDPOINTS:
             rc = handle_tts_addpoints(payload);
+            break;
+        case TTS_MADDPOINTS:
+            rc = handle_tts_maddpoints(payload);
             break;
         case TTS_QUERY:
             rc = handle_tts_query(payload);

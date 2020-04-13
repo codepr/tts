@@ -231,26 +231,32 @@ static int tts_handle_madd(char *line, struct tts_packet *tts_p) {
         mpoints->pts[i].ts_name = malloc(mpoints->pts[i].ts_name_len + 1);
         snprintf((char *) mpoints->pts[i].ts_name,
                  mpoints->pts[i].ts_name_len + 1, "%s", token);
+        mpoints->pts[i].points = calloc(1, sizeof(*mpoints->pts[i].points));
+        mpoints->pts[i].points_len = 1;
         token = strtok(NULL, " ");
         if (!token)
             return TTS_CLIENT_FAILURE;
         if (strcmp(token, "*") == 0) {
-            mpoints->pts[i].points[i].bits.ts_sec_set = 0;
-            mpoints->pts[i].points[i].bits.ts_nsec_set = 0;
+            mpoints->pts[i].points[0].bits.ts_sec_set = 0;
+            mpoints->pts[i].points[0].bits.ts_nsec_set = 0;
         } else {
             unsigned long long n = read_timestamp(token);
             int len = get_digits(n);
-            mpoints->pts[i].points[i].bits.ts_sec_set = 1;
-            mpoints->pts[i].points[i].bits.ts_nsec_set = 1;
+            mpoints->pts[i].points[0].bits.ts_sec_set = 1;
+            mpoints->pts[i].points[0].bits.ts_nsec_set = 1;
             if (len == 10)
-                mpoints->pts[i].points[i].ts_sec = n;
+                mpoints->pts[i].points[0].ts_sec = n;
             else if (len == 13)
-                mpoints->pts[i].points[i].ts_sec = n / 1e3;
-            mpoints->pts[i].points[i].ts_nsec = 0;
+                mpoints->pts[i].points[0].ts_sec = n / 1e3;
+            mpoints->pts[i].points[0].ts_nsec = 0;
         }
-        ++mpoints->points_len;
+        token = strtok(NULL, " ");
+        if (!token)
+            return TTS_CLIENT_FAILURE;
+        mpoints->pts[i].points[0].value = read_real(token);
         ++i;
     } while ((token = strtok(NULL, " ")));
+    mpoints->points_len = i;
     return TTS_CLIENT_SUCCESS;
 }
 
@@ -423,6 +429,7 @@ void tts_client_disconnect(tts_client *client) {
 
 int tts_client_send_command(tts_client *client, char *command) {
     ssize_t size = tts_parse_req(command, client->buf);
+    printf("Size %lu\n", size);
     if (size <= 0)
         return size;
     client->bufsize = size;
