@@ -112,6 +112,38 @@ static inline long double read_real(const char *str) {
     return n;
 }
 
+static void tts_client_packet_destroy(struct tts_packet *tts_p) {
+    switch (tts_p->header.opcode) {
+        case TTS_CREATE_TS:
+            free(tts_p->create.ts_name);
+            break;
+        case TTS_DELETE_TS:
+            free(tts_p->drop.ts_name);
+            break;
+        case TTS_ADDPOINTS:
+            free(tts_p->addpoints.ts_name);
+            for (int i = 0; i < tts_p->addpoints.points_len; ++i) {
+                for (int j = 0; j < tts_p->addpoints.points[i].labels_len; ++j) {
+                    free(tts_p->addpoints.points[i].labels[j].label);
+                    free(tts_p->addpoints.points[i].labels[j].value);
+                }
+                free(tts_p->addpoints.points[i].labels);
+            }
+            free(tts_p->addpoints.points);
+            break;
+        case TTS_MADDPOINTS:
+            for (int i = 0; i < tts_p->maddpoints.points_len; ++i) {
+                free(tts_p->maddpoints.pts[i].ts_name);
+                free(tts_p->maddpoints.pts[i].points);
+            }
+            free(tts_p->maddpoints.pts);
+            break;
+        case TTS_QUERY:
+            free(tts_p->query.ts_name);
+            break;
+    }
+}
+
 static int tts_handle_create(char *line, struct tts_packet *tts_p) {
     if (count_tokens(line, ' ') < 1)
         return TTS_CLIENT_UNKNOWN_CMD;
@@ -306,7 +338,7 @@ static int tts_handle_query(char *line, struct tts_packet *tts_p) {
     return TTS_CLIENT_SUCCESS;
 }
 
-static ssize_t tts_parse_req(char *cmd, char *buf) {
+static ssize_t tts_parse_request(char *cmd, char *buf) {
     if (strncasecmp(cmd, "quit", 4) == 0 || strncasecmp(cmd, "exit", 4) == 0)
         return TTS_CLIENT_SUCCESS;
     if (count_tokens(cmd, ' ') < 1)
@@ -327,13 +359,14 @@ static ssize_t tts_parse_req(char *cmd, char *buf) {
         goto err;
 
     len = pack_tts_packet(&tts_p, (uint8_t *) buf);
+    tts_client_packet_destroy(&tts_p);
 
     return len;
 err:
     return TTS_CLIENT_FAILURE;
 }
 
-static ssize_t tts_parse_res(char *res, struct tts_packet *tts_p) {
+static ssize_t tts_parse_response(char *res, struct tts_packet *tts_p) {
     unpack_tts_packet((uint8_t *) res, tts_p);
     return TTS_CLIENT_SUCCESS;
 }
@@ -428,7 +461,7 @@ void tts_client_disconnect(tts_client *client) {
 }
 
 int tts_client_send_command(tts_client *client, char *command) {
-    ssize_t size = tts_parse_req(command, client->buf);
+    ssize_t size = tts_parse_request(command, client->buf);
     printf("Size %lu\n", size);
     if (size <= 0)
         return size;
@@ -450,6 +483,6 @@ int tts_client_recv_response(tts_client *client, struct tts_packet *tts_p) {
     if (n <= 0)
         return TTS_CLIENT_FAILURE;
 parse:
-    tts_parse_res(client->buf, tts_p);
+    tts_parse_response(client->buf, tts_p);
     return n;
 }
