@@ -68,5 +68,6 @@ int tts_client_connect(tts_client *);
 void tts_client_disconnect(tts_client *);
 int tts_client_send_command(tts_client *, char *);
 int tts_client_recv_response(tts_client *, struct tts_packet *);
+void tts_client_packet_destroy(struct tts_packet *);
 
 #endif

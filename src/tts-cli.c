@@ -177,6 +177,7 @@ int main(int argc, char **argv) {
             delta = time_spec_seconds(&tend) - time_spec_seconds(&tstart);
             printf("%lu results in %lf seconds.\n", tts_p.query_r.len, delta);
         }
+        tts_client_packet_destroy(&tts_p);
     }
     tts_client_destroy(&c);
     free(line);

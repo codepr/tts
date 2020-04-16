@@ -112,35 +112,50 @@ static inline long double read_real(const char *str) {
     return n;
 }
 
-static void tts_client_packet_destroy(struct tts_packet *tts_p) {
-    switch (tts_p->header.opcode) {
-        case TTS_CREATE_TS:
-            free(tts_p->create.ts_name);
-            break;
-        case TTS_DELETE_TS:
-            free(tts_p->drop.ts_name);
-            break;
-        case TTS_ADDPOINTS:
-            free(tts_p->addpoints.ts_name);
-            for (int i = 0; i < tts_p->addpoints.points_len; ++i) {
-                for (int j = 0; j < tts_p->addpoints.points[i].labels_len; ++j) {
-                    free(tts_p->addpoints.points[i].labels[j].label);
-                    free(tts_p->addpoints.points[i].labels[j].value);
+void tts_client_packet_destroy(struct tts_packet *tts_p) {
+    if (tts_p->header.type == TTS_REQUEST) {
+        switch (tts_p->header.opcode) {
+            case TTS_CREATE_TS:
+                free(tts_p->create.ts_name);
+                break;
+            case TTS_DELETE_TS:
+                free(tts_p->drop.ts_name);
+                break;
+            case TTS_ADDPOINTS:
+                free(tts_p->addpoints.ts_name);
+                for (int i = 0; i < tts_p->addpoints.points_len; ++i) {
+                    for (int j = 0; j < tts_p->addpoints.points[i].labels_len; ++j) {
+                        free(tts_p->addpoints.points[i].labels[j].label);
+                        free(tts_p->addpoints.points[i].labels[j].value);
+                    }
+                    free(tts_p->addpoints.points[i].labels);
                 }
-                free(tts_p->addpoints.points[i].labels);
-            }
-            free(tts_p->addpoints.points);
-            break;
-        case TTS_MADDPOINTS:
-            for (int i = 0; i < tts_p->maddpoints.points_len; ++i) {
-                free(tts_p->maddpoints.pts[i].ts_name);
-                free(tts_p->maddpoints.pts[i].points);
-            }
-            free(tts_p->maddpoints.pts);
-            break;
-        case TTS_QUERY:
-            free(tts_p->query.ts_name);
-            break;
+                free(tts_p->addpoints.points);
+                break;
+            case TTS_MADDPOINTS:
+                for (int i = 0; i < tts_p->maddpoints.points_len; ++i) {
+                    free(tts_p->maddpoints.pts[i].ts_name);
+                    free(tts_p->maddpoints.pts[i].points);
+                }
+                free(tts_p->maddpoints.pts);
+                break;
+            case TTS_QUERY:
+                free(tts_p->query.ts_name);
+                break;
+        }
+    } else {
+        switch (tts_p->header.opcode) {
+            case TTS_QUERY_RESPONSE:
+                for (size_t i = 0; i < tts_p->query_r.len; ++i) {
+                    for (int j = 0; j < tts_p->query_r.results[i].labels_len; ++j) {
+                        free(tts_p->query_r.results[i].labels[j].label);
+                        free(tts_p->query_r.results[i].labels[j].value);
+                    }
+                    free(tts_p->query_r.results[i].labels);
+                }
+                free(tts_p->query_r.results);
+                break;
+        }
     }
 }
 
@@ -462,7 +477,6 @@ void tts_client_disconnect(tts_client *client) {
 
 int tts_client_send_command(tts_client *client, char *command) {
     ssize_t size = tts_parse_request(command, client->buf);
-    printf("Size %lu\n", size);
     if (size <= 0)
         return size;
     client->bufsize = size;
